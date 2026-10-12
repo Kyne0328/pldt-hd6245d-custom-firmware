@@ -58,7 +58,7 @@ Hardware capabilities verified on one board are not necessarily identical across
 | Original firmware preservation / hardware investigation | Completed locally; private backups **not included** here |
 | ARMv7 static cross-compilation | Working |
 | Service supervisor (explicit configurations, bounded restarts and shutdown) | Implemented; host-tested |
-| Password-protected local dashboard and live device status | **Confirmed on physical BCM96846:** loopback HTTP, login, authenticated dashboard/API, CSRF, logout, clean shutdown (`SMOKE_EXIT=0`) |
+| Password-protected local dashboard and live device status | **Confirmed on physical BCM96846:** loopback HTTP, login, authenticated dashboard/API, CSRF, logout, clean shutdown (`SMOKE_EXIT=0`). Temporary LAN HTTPS visual preview implemented, not yet tested on the router. |
 | USB device detection and opt-in read-only mount/unmount CLI | Implemented; hardware access not yet tested with HGFW |
 | Routed network topology validator (no writes) | Implemented |
 | Reproducible userspace overlay + checksums | Working |
@@ -82,6 +82,18 @@ Run `hgfw smoke` with the native host executable or the ARMv7 executable. It sta
 ```
 
 The full end-to-end smoke test passed on **both the no-VFP ARM emulator and a physical HG6245D** running stock Broadcom Linux 4.1.45 (October 12, 2026). The physical test returned `SMOKE_EXIT=0`, all seven security/lifecycle checks true, 37 interfaces, two USB block-device entries (one disk and one partition), 12,020 KiB peak RSS, and 9,647 ms elapsed. It used `127.0.0.1:ephemeral` and automatically shut down. This establishes backend behavior, not browser rendering, long-running reliability, full USB filesystem support, router/network configuration control, or an independently bootable firmware. Because it binds to the router's 127.0.0.1, it is intentionally not browsable from another computer on the LAN.
+
+### Temporary HTTPS browser preview (engineering validation)
+
+To view the real HGFW dashboard from another LAN computer, stage the ARMv7 executable on the router using a RAM-backed filesystem and a SHA-256 checked transfer. The source includes `hgfw preview`, which **never modifies network configuration** and does not install any boot service. With the router's example LAN management address:
+
+```sh
+/mnt/hgfw-run/hgfw preview --listen 192.168.1.2:9443 --seconds 240
+```
+
+The preview binds only to an IPv4 address already assigned to the device; wildcard binds are refused. It creates a fresh TLS key/certificate and strong random password **in memory**, prints the temporary `https://` URL, password and certificate SHA-256 fingerprint to the terminal, and shuts down automatically after 240 seconds (or sooner on Ctrl-C). HTTPS clients will warn because the certificate is self-signed. Verify the certificate fingerprint independently against the terminal before proceeding; do not permanently trust the certificate. Never share the printed one-time password or commit credentials to Git.
+
+The dashboard is observation-only. The command does not run router services, DHCP, firewall configuration, flash utilities or USB mounts. Afterward it prints elapsed runtime and its peak resident memory reported by the kernel. This is a bounded LAN demonstration of the **actual** management UI, not a deployed router OS. Do not expose the preview port through a WAN or port-forwarding rule.
 
 ### Verified non-flashing hardware test
 

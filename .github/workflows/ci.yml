@@ -28,4 +28,6 @@ jobs:
           qemu-arm-static -cpu cortex-a9,vfp=off build/hgfw-armv7 version
           qemu-arm-static -cpu cortex-a9,vfp=off build/hgfw-armv7 usb
           timeout 90s qemu-arm-static -cpu cortex-a9,vfp=off build/hgfw-armv7 smoke
+          GOOS=linux GOARCH=arm GOARM=7,softfloat CGO_ENABLED=0 go test -c -o build/hgfw-preview-tests-arm ./internal/preview
+          timeout 90s qemu-arm-static -cpu cortex-a9,vfp=off build/hgfw-preview-tests-arm
           python3 -c "import json; m=json.load(open('dist/manifest.json')); assert m['bootable'] is False and m['flashable'] is False"

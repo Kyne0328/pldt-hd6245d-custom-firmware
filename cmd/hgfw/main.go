@@ -15,6 +15,7 @@ import (
 
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/admin"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/device"
+	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/preview"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/services"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/smoke"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/storage"
@@ -24,7 +25,7 @@ const defaultServices = "config/services.json"
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "HGFW — independent router userspace (engineering build)")
-	fmt.Fprintln(os.Stderr, "Commands: init, serve, smoke, status, network-plan, usb, usb-mount, usb-unmount, version")
+	fmt.Fprintln(os.Stderr, "Commands: init, serve, preview, smoke, status, network-plan, usb, usb-mount, usb-unmount, version")
 	fmt.Fprintln(os.Stderr, "No command changes NAND, NVRAM, bridge, Wi-Fi, or firewall.")
 }
 func run(args []string) error {
@@ -36,6 +37,37 @@ func run(args []string) error {
 	case "version":
 		fmt.Println("HGFW stage2 armv7 development — no flash support")
 		return nil
+	case "preview":
+		f := flag.NewFlagSet("preview", flag.ContinueOnError)
+		addr := f.String("listen", "127.0.0.1:9443", "exact assigned IPv4 address and HTTPS port")
+		seconds := f.Int("seconds", 240, "automatic shutdown delay (20..600 seconds)")
+		if e := f.Parse(args[1:]); e != nil {
+			return e
+		}
+		if f.NArg() != 0 {
+			return errors.New("unexpected preview arguments")
+		}
+		started := time.Now()
+		err := preview.Run(preview.Options{Listen: *addr, Duration: time.Duration(*seconds) * time.Second, OnReady: func(r preview.Ready) {
+			fmt.Println("HGFW_PREVIEW_URL=" + r.URL)
+			fmt.Println("HGFW_PREVIEW_PASSWORD=" + r.Password)
+			fmt.Println("HGFW_CERT_SHA256=" + r.Fingerprint)
+			fmt.Println("HGFW_PREVIEW_TIMEOUT_SECONDS=", *seconds)
+			fmt.Println("HGFW_PREVIEW_READ_ONLY=true")
+		}})
+		if err == nil {
+			fmt.Println("HGFW_PREVIEW_STOPPED=true")
+			fmt.Printf("HGFW_PREVIEW_ELAPSED_SECONDS=%d\n", int64(time.Since(started).Seconds()))
+			if procStatus, e := os.ReadFile("/proc/self/status"); e == nil {
+				for _, line := range strings.Split(string(procStatus), "\n") {
+					if strings.HasPrefix(line, "VmHWM:") {
+						fmt.Println("HGFW_PREVIEW_PEAK_RSS=" + strings.TrimSpace(strings.TrimPrefix(line, "VmHWM:")))
+						break
+					}
+				}
+			}
+		}
+		return err
 	case "smoke":
 		if len(args) != 1 {
 			return errors.New("smoke takes no arguments")
