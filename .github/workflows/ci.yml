@@ -1,0 +1,23 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ARM build tools
+        run: sudo apt-get update && sudo apt-get install -y clang lld make python3
+      - name: Build, verify, and run tests
+        run: make all
+      - name: Inspect output is ARM, not a firmware image
+        run: |
+          file build/hgfw-canary
+          readelf -h build/hgfw-canary | grep 'Machine:.*ARM'
+          python3 -c "import json; m=json.load(open('dist/manifest.json')); assert m['bootable'] is False and m['flashable'] is False"
