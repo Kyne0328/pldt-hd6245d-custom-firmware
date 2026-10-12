@@ -78,10 +78,13 @@ func wifiExec(ctx context.Context, command string, args ...string) (string, erro
 	}
 	return string(b), nil
 }
-func wifiCall(run wifiRunner, bin string, args ...string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 900*time.Millisecond)
+func wifiCallContext(parent context.Context, run wifiRunner, bin string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(parent, 900*time.Millisecond)
 	defer cancel()
 	return run(ctx, bin, args...)
+}
+func wifiCall(run wifiRunner, bin string, args ...string) (string, error) {
+	return wifiCallContext(context.Background(), run, bin, args...)
 }
 func normalMAC(m string) string {
 	mac, err := net.ParseMAC(m)
@@ -108,6 +111,21 @@ func parseWLAssociations(data string) []WirelessStation {
 		out = append(out, WirelessStation{MAC: mac, Source: "Broadcom wl assoclist"})
 	}
 	return out
+}
+
+// Some driver helpers print an error on stdout yet exit with code zero.
+// A failed association query must not masquerade as zero connected clients.
+func validWLAssociationOutput(data string) bool {
+	for _, line := range strings.Split(data, "\n") {
+		line = strings.ToLower(strings.TrimSpace(line))
+		if line == "" || line == "assoclist" || line == "assoclist:" {
+			continue
+		}
+		if !(strings.HasPrefix(line, "assoclist ") || strings.HasPrefix(line, "assoclist: ")) || normalMAC(macMatcher.FindString(line)) == "" {
+			return false
+		}
+	}
+	return true
 }
 func parseIWStations(data string) []WirelessStation {
 	out := []WirelessStation{}
@@ -161,25 +179,44 @@ func parseIWStations(data string) []WirelessStation {
 	flush()
 	return out
 }
+
+// An SSID is at most 32 bytes (not 32 runes). Reject diagnostic text and
+// malformed quoting rather than accidentally displaying it as a network name.
+func parseSSIDValue(raw string) string {
+	value := strings.TrimSpace(raw)
+	if strings.HasPrefix(value, "\"") {
+		if len(value) < 2 || !strings.HasSuffix(value, "\"") {
+			return ""
+		}
+		value = value[1 : len(value)-1]
+	} else if strings.Contains(value, "\"") {
+		return ""
+	}
+	if len(value) == 0 || len(value) > 32 {
+		return ""
+	}
+	for _, r := range value {
+		if r < 32 || r == 127 {
+			return ""
+		}
+	}
+	return value
+}
 func parseWLField(output, field string) string {
 	text := strings.TrimSpace(output)
 	if field == "ssid" {
-		if strings.HasPrefix(strings.ToUpper(text), "CURRENT SSID:") {
-			text = strings.TrimSpace(text[len("CURRENT SSID:"):])
-		}
-		if strings.HasPrefix(strings.ToUpper(text), "SSID:") {
-			text = strings.TrimSpace(text[5:])
-		}
-		text = strings.Trim(text, string(rune(34)))
-		if len(text) > 64 {
+		if strings.ContainsAny(text, "\r\n") {
 			return ""
 		}
-		for _, r := range text {
-			if r < 32 || r == 127 {
-				return ""
-			}
+		switch {
+		case strings.HasPrefix(strings.ToLower(text), "current ssid:"):
+			text = strings.TrimSpace(text[len("current ssid:"):])
+		case strings.HasPrefix(strings.ToLower(text), "ssid:"):
+			text = strings.TrimSpace(text[len("ssid:"):])
+		default:
+			return ""
 		}
-		return text
+		return parseSSIDValue(text)
 	}
 	if match := channelMatcher.FindStringSubmatch(text); len(match) > 1 {
 		return match[1]
@@ -188,7 +225,7 @@ func parseWLField(output, field string) string {
 }
 func parseIWInfo(info string) (ssid, channel, mode string) {
 	if m := validSSIDLine.FindStringSubmatch(info); len(m) > 1 {
-		ssid = parseWLField(m[1], "ssid")
+		ssid = parseSSIDValue(m[1])
 	}
 	if m := channelMatcher.FindStringSubmatch(info); len(m) > 1 {
 		channel = m[1]
@@ -211,6 +248,7 @@ func InspectWireless(model string, network NetworkInspection, run wifiRunner, lo
 	info := WirelessObservation{Radios: []WirelessRadio{}, Notes: []string{
 		"Stations are reported ONLY from a successful driver association query; an absent helper means status unavailable, never zero clients.",
 		"A reported wireless association is not a DHCP lease or internet connection.",
+		"Station signal/rates are best-effort measurements, not proof of internet throughput. Missing values are unavailable, not zero.",
 		"No SSID, radio power, AP/STA mode, password, bridge or network setting is modified.",
 	}}
 	evidence := map[string]NetworkEvidence{}
@@ -237,7 +275,7 @@ func InspectWireless(model string, network NetworkInspection, run wifiRunner, lo
 		// Prefer the genuine proprietary wl association list if installed; fallback
 		// to standard nl80211 read-only iw when wl is missing/not supported.
 		if wlErr == nil {
-			if output, err := wifiCall(run, "wl", "-i", name, "assoclist"); err == nil {
+			if output, err := wifiCall(run, "wl", "-i", name, "assoclist"); err == nil && validWLAssociationOutput(output) {
 				r.Stations = parseWLAssociations(output)
 				r.AssociationStatus = "observed"
 				r.Source = "Broadcom wl assoclist"
@@ -269,6 +307,9 @@ func InspectWireless(model string, network NetworkInspection, run wifiRunner, lo
 			}
 		}
 		info.Radios = append(info.Radios, r)
+	}
+	if wlErr == nil {
+		enrichWLStations(info.Radios, run)
 	}
 	return info
 }

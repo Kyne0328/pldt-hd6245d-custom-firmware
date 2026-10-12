@@ -159,12 +159,18 @@ Read-only commands for a RAM-only HG6245D hardware test (the JSON can contain Wi
 ```
 
 **Physical test (October 12, 2026):** after hash-verifying ARMv7 softfloat binary SHA-256 `6a4d56cc3ba90b0dfdad9f3b62c9585625c8ac137e18dce468bb806dd0d5b246` in a 12 MiB dedicated tmpfs, `wireless-inspect` returned `WIRELESS_EXIT=0`, `associationStatus=observed` for both `wl0` (1 station) and `wl1` (2 stations). The tool reported channels 9 and 58. Parsed SSID was only one character (`I`) on both radios; this is **unverified** and should not be treated as a confirmed SSID until the raw command format can be safely inspected. No RSSI/rate measurements were obtained from `assoclist`. `vpn-inspect` returned `VPN_EXIT=0` and observed **no TUN character device**, **no TUN registration**, and reported `CONFIG_TUN=disabled`, with `CONFIG_WIREGUARD=unknown`, no WireGuard module observed and only `pppd` detected. IPv4 forwarding was off, IPv6 forwarding on. This means the stock kernel does not currently provide a demonstrated TUN-based path for userspace WireGuard/OpenVPN. No station MACs or private SSIDs are included in this public record. Actual VPN deployment requires different kernel/driver support or a separately validated alternative, along with secure key storage, routing and verified recovery. No flash or current network configuration changes occur.
+### Wireless Engine v2 — optional station signal and rates
+
+The independent wireless inspector now supplements a successful Broadcom `wl assoclist` with read-only `wl -i wlN sta_info <station-MAC>` (last TX/RX packet rates) and `wl -i wlN rssi <station-MAC>` (RSSI). Output is strictly parsed and converted to MBit/s and dBm, respectively. Unsupported commands, malformed responses, or missing driver values remain unavailable; even a helper that prints an error on stdout and exits successfully cannot be misreported as zero clients. A valid association list is never discarded because optional enrichment failed. The enrichment phase runs **after both radios' base inventories**, checks at most eight associated clients across radios in a round-robin order, and has a combined 2.5-second time budget on top of the original 900-ms-per-command limits. Each displayed station still originates solely from a driver association query, never from ARP, leases, or inferred device names.
+
+SSID parsing now requires a recognized one-line `Current SSID:` or `SSID:` response and rejects invalid quoting/control bytes or SSIDs longer than 32 bytes. The physical unit's previously reported single-character `I` is **not confirmed or corrected by this parser change**; a real one-character SSID is valid, and determining whether that earlier observation was accurate still requires inspecting the read-only raw command format locally without publishing the actual SSID. The v2 code has passed local Go tests, Go vet, JavaScript syntax checks, ARMv7 soft-float QEMU and authenticated lifecycle smoke testing; the v2 station metrics and SSID behavior have **not yet been verified on the physical HG6245D**. No firmware flashing, network reconfiguration or device reboot is supported.
+
 ### Full router-console feature map (Stage 2 read-only)
 
 HGFW now uses the **five original PLDT administration areas** as an independently implemented navigation framework: **Status**, **Network**, **Security**, **Applications**, and **Management**. Existing **Overview**, **USB Storage**, and **Services** remain available. This structure was derived from offline analysis of the private stock menu XML and matching ASP entry points, **not** from copying vendor JavaScript or compiled binaries into HGFW. The original Wi-Fi client table was traced to `wireless/wifimaclist.asp` and a compiled `getWifiMac_IPListParam` handler. Stock GRE and IPsec pass-through pages submit to private `/goform/setVPNEnable` and `/goform/setIpsecEnable`; neither page proves VPN server availability.
 
 - **Live, authenticated observations:** device model, kernel, memory, uptime, Linux/bridge/WAN route evidence, available carrier readings, an operator-reported LAN 1-4 map on BCM96846 only, completed ARP neighbor entries, USB disks, HGFW process supervisor, kernel IPv4/IPv6 forwarding flags, available firewall table names, VPN executable inventory, and TUN/WireGuard kernel/device presence.
-- **Features not yet independently enabled:** Wi-Fi association/client list (ARP is not a Wi-Fi list), SSID/WPA/5 GHz radio configuration, WAN/DHCP/IPTV/IPv6 configuration, VPN pass-through toggles, WireGuard/OpenVPN tunnels, firewall/parental filtering, NAT/port forwarding/UPnP/DDNS, SMB/printing, account/password changes, logging/clock, backups/restores, firmware update and reboot. They have navigable explanations and prerequisites, **not working Apply buttons**.
+- **Features not yet independently enabled:** independent Wi-Fi association policy or SSID/WPA/5 GHz radio configuration, WAN/DHCP/IPTV/IPv6 configuration, VPN pass-through toggles, WireGuard/OpenVPN tunnels, firewall/parental filtering, NAT/port forwarding/UPnP/DDNS, SMB/printing, account/password changes, logging/clock, backups/restores, firmware update and reboot. They have navigable explanations and prerequisites, **not working Apply buttons**.
 - **Safety boundary:** The dashboard neither submits stock CGI calls nor executes router configuration/flash commands. VPN diagnostics are capability signals, **not an active VPN connection**. Original stock source and private backups remain outside the public repository.
 
 This milestone implements the **router-administration information architecture with safe diagnostics**, not functional parity with stock firmware. Each configuration service still needs independent driver/backend integration, tests and a proven software-only rollback/recovery mechanism. The latest version's physical-device browser test is pending; earlier HGFW builds have been verified on hardware.
@@ -245,4 +251,17 @@ Build output, extracted proprietary firmware, calibration data, private device s
 
 ## Roadmap
 
-1. **Hardwar
+1. **Hardware reference:** capture non-sensitive device-tree and kernel configuration structure, map Ethernet/switch functionality.
+2. **Userland proof:** execute the ARMv7 test program in a temporary environment and confirm compatibility.
+3. **Networking:** validate current interfaces and planned isolated WAN/LAN topologies; implement tested, rollback-protected DHCP/DNS, firewall and Wi-Fi controls.
+4. **USB services:** verify the opt-in read-only mount flow on the device; add audited SMB/NFS file sharing and printer server support.
+5. **Management:** extend the working authenticated observation dashboard with explicitly authorized safe control operations, logs, backups and update/rollback management.
+6. **Firmware release:** implement verified boot/recovery and produce a flashable image only after safe failure recovery is established.
+
+## Safety and legal notes
+
+- **Nothing in this repository should be flashed or installed over an active firmware image.** An unsafe image can permanently prevent software-only recovery.
+- Proprietary Broadcom/FiberHome components, original NAND backups, and device-specific credentials are not published.
+- The original Linux 4.1 kernel is obsolete; a compatibility approach must not be treated as safe for internet-facing production deployment.
+- HGFW is an independent community project, **not affiliated with or endorsed by FiberHome, Broadcom, or PLDT**.
+- No license has been selected yet. Until a license is added, the default copyright rules apply to these source files.
