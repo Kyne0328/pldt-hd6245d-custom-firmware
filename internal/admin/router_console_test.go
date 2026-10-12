@@ -33,4 +33,9 @@ func TestStockMenuMappedIntoIndependentConsole(t *testing.T) {
 	if !bytes.Contains(appJS, []byte("Not enabled")) || !bytes.Contains(appJS, []byte("Not configured or established by HGFW")) {
 		t.Fatal("feature capability states must be explicit")
 	}
+	for _, label := range []string{"serviceSources", "dnsUDP53Observed", "dhcpUDP67Observed", "HGFW read-only kernel/file/source checks"} {
+		if !bytes.Contains(appJS, []byte(label)) {
+			t.Fatalf("missing evidence-driven source status: %s", label)
+		}
+	}
 }

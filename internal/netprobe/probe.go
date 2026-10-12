@@ -123,8 +123,14 @@ func SelfTest() (Result, error) {
 				resp.Body.Close()
 				if resp.StatusCode == 200 && strings.TrimSpace(string(b)) == strings.TrimSpace(response) {
 					result.ResponseVerified = true
-					result.Supervised = len(st) > 0 && st[0].State == "running"
-					break
+					// A healthy child can answer before the independent supervisor's
+					// state snapshot transitions from starting to running. Do not
+					// stop polling before both facts are observed together.
+					current := sup.Snapshot()
+					result.Supervised = len(current) > 0 && current[0].State == "running"
+					if result.Supervised {
+						break
+					}
 				}
 			}
 		}

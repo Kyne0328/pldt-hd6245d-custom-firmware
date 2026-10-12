@@ -14,21 +14,22 @@ import (
 )
 
 type Status struct {
-	Model         string              `json:"model"`
-	Kernel        string              `json:"kernel"`
-	MemTotalKB    int64               `json:"memTotalKB"`
-	MemAvailKB    int64               `json:"memAvailableKB"`
-	UptimeSeconds int64               `json:"uptimeSeconds"`
-	LoadOne       float64             `json:"loadOne"`
-	Interfaces    []Interface         `json:"interfaces"`
-	Disks         []Disk              `json:"disks"`
-	Network       NetworkInspection   `json:"network"`
-	Platform      PlatformInspection  `json:"platform"`
-	LANPorts      []LANPort           `json:"lanPorts"`
-	ARPNeighbors  []ARPNeighbor       `json:"arpNeighbors"`
-	Resolvers     ResolverInspection  `json:"resolvers"`
-	DHCPLeases    DHCPLeaseEvidence   `json:"dhcpLeases"`
-	Wireless      WirelessObservation `json:"wireless"`
+	Model          string              `json:"model"`
+	Kernel         string              `json:"kernel"`
+	MemTotalKB     int64               `json:"memTotalKB"`
+	MemAvailKB     int64               `json:"memAvailableKB"`
+	UptimeSeconds  int64               `json:"uptimeSeconds"`
+	LoadOne        float64             `json:"loadOne"`
+	Interfaces     []Interface         `json:"interfaces"`
+	Disks          []Disk              `json:"disks"`
+	Network        NetworkInspection   `json:"network"`
+	Platform       PlatformInspection  `json:"platform"`
+	LANPorts       []LANPort           `json:"lanPorts"`
+	ARPNeighbors   []ARPNeighbor       `json:"arpNeighbors"`
+	Resolvers      ResolverInspection  `json:"resolvers"`
+	DHCPLeases     DHCPLeaseEvidence   `json:"dhcpLeases"`
+	ServiceSources ServiceDiscovery    `json:"serviceSources"`
+	Wireless       WirelessObservation `json:"wireless"`
 }
 type Interface struct {
 	Name      string   `json:"name"`
@@ -174,6 +175,7 @@ func Snapshot() Status {
 	s.LANPorts = OperatorLANPorts(s.Model, s.Network.Interfaces)
 	s.ARPNeighbors = ReadARPNeighbors("/proc/net/arp")
 	s.Resolvers = InspectResolvers("/etc/resolv.conf")
+	s.ServiceSources = DiscoverServiceEvidence("/")
 	AssociateARP(s.Wireless.Radios, s.ARPNeighbors)
 	// Optional standard dnsmasq lease evidence only, never assume a stock
 	// proprietary DHCP file or assign an IP based on lease text alone.
