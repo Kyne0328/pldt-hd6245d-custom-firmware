@@ -1,0 +1,8 @@
+{
+  "wanInterface": "eth0.1",
+  "lanInterface": "br-lan",
+  "lanAddress": "192.168.50.1/24",
+  "dhcpStart": "192.168.50.100",
+  "dhcpEnd": "192.168.50.200",
+  "upstreamMode": "dhcp"
+}

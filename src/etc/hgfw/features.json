@@ -3,20 +3,20 @@
   "project": "HGFW",
   "hardware": "FiberHome HG6245D",
   "soc": "brcm,bcm96846",
-  "stage": "userspace-development",
+  "stage": "managed-userspace-preview",
   "networkChangesEnabled": false,
   "flashWritesEnabled": false,
   "features": {
     "ethernet": "stock-driver-reference",
     "wifi24": "stock-driver-reference",
     "wifi5": "stock-driver-reference",
-    "usb_storage": "physical-ports-enumerated",
+    "usb_storage": "physical-ports-enumerated-managed-mount-not-device-tested",
     "usb_printer": "driver-present-not-tested",
     "dhcp": "planned",
     "dns": "planned",
     "firewall": "planned",
     "nas_smb": "planned",
     "print_server": "planned",
-    "dashboard": "planned"
+    "dashboard": "implemented-authenticated-read-only"
   }
 }

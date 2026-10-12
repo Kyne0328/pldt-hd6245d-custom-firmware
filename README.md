@@ -7,7 +7,7 @@
 The aim is to use as much of the device's existing hardware as possible: dual-band Wi-Fi, Ethernet routing, USB storage, printer sharing, and an independent administration interface.
 
 > [!IMPORTANT]
-> **Early development — not ready to install.** The repository currently builds an ARMv7 userspace test executable and a small, reproducible filesystem overlay. It does **not** contain a bootable kernel, a working replacement router firmware, or a flashable image. Do not flash any of the generated archives to your device.
+> **Developer preview — not ready to install.** The project now builds a native ARMv7 management daemon, an authenticated browser dashboard and a reproducible userspace overlay. However, it is **not** a complete router operating system, bootable kernel, or flashable image. No generated archive should be flashed to a device.
 
 ## The goal
 
@@ -56,23 +56,27 @@ Hardware capabilities verified on one board are not necessarily identical across
 | Area | Status |
 | --- | --- |
 | Original firmware preservation / hardware investigation | Completed locally; private backups **not included** here |
-| ARMv7 cross-compilation | Working |
+| ARMv7 static cross-compilation | Working |
+| Service supervisor (explicit configurations, bounded restarts and shutdown) | Implemented; host-tested |
+| Password-protected local dashboard and live device status | Implemented; host-tested |
+| USB device detection and opt-in read-only mount/unmount CLI | Implemented; hardware access not yet tested with HGFW |
+| Routed network topology validator (no writes) | Implemented |
 | Reproducible userspace overlay + checksums | Working |
-| Offline test suite | Working |
+| Offline Python and Go test suites | Working |
 | Temporary execution on the actual router | Not yet tested |
 | Ethernet WAN, firewall, DHCP and DNS | Planned |
 | Wireless client / repeater modes | Under investigation |
 | SMB/NAS file sharing | Planned |
 | USB printer server | Planned; requires printer compatibility testing |
-| Independent admin UI | Planned |
+| Independent admin UI | Implemented read-only preview; router deployment untested |
 | Bootable custom image / safe installer | Blocked by boot-chain and recovery validation |
 
 ## Architecture and development path
 
 ```mermaid
 flowchart LR
-    code["HGFW source"] --> build["Clang + Python build"]
-    build --> overlay["ARMv7 userspace overlay"]
+    code["HGFW source"] --> build["Clang + Go + Python"]
+    build --> overlay["ARMv7 daemon and userspace overlay"]
     overlay --> tests["Archive verification + tests"]
     tests --> future["Future non-flashing device tests"]
     future -. "Only after validated recovery" .-> release["Future bootable firmware"]
@@ -90,21 +94,51 @@ A complete modern Linux/OpenWrt-style port is the long-term direction. Broadcom'
 
 ## Build
 
-**Requirements:** Linux or WSL2, Python 3.9+, GNU Make, Bash, Clang with ARM target support, and LLD. On Ubuntu 24.04:
+**Requirements:** Linux or WSL2, Go 1.26+, Python 3.9+, GNU Make, Bash, Clang with ARM target support, and LLD. Install Go from [go.dev/dl](https://go.dev/dl/) or an equivalent trusted package source. On Ubuntu 24.04, install the remaining tools:
 
 ```bash
 sudo apt-get install -y python3 make clang lld
+# Ensure `go version` reports Go 1.26 or newer.
 git clone https://github.com/Kyne0328/pldt-hd6245d-custom-firmware.git
 cd pldt-hd6245d-custom-firmware
 make all
 ```
 
-`make all` builds and verifies the **original-source-only** stage-1 overlay, then runs its tests. This is entirely an offline host build, and does not connect to or modify a router.
+`make all` cross-builds both the original ARM canary and a statically linked ARMv7 HGFW management daemon, assembles the overlay, verifies integrity and runs the Python and Go tests. **The build does not contact or modify any router.**
 
 The outputs are generated under `dist/`:
 
-- `hgfw-stage1-armv7-overlay.tar.gz` — minimal ARMv7 overlay containing the canary executable, configuration and read-only diagnostics.
+- `hgfw-stage2-armv7-overlay.tar.gz` — nonbootable ARMv7 userspace overlay containing the HGFW daemon, canary, default configuration and read-only diagnostics.
 - `manifest.json` and `*.sha256` — build metadata and integrity checks.
+
+## Run the dashboard locally
+
+First, build a **host** executable. Never run host binaries on the router.
+
+```bash
+make host
+mkdir -p private
+read -rsp "Choose a strong admin password: " HGFW_PASS; echo
+(umask 077; printf '%s' "$HGFW_PASS" > private/admin-password)
+unset HGFW_PASS
+./build/hgfw-host init --password-file private/admin-password --auth-file private/admin.json
+rm private/admin-password
+./build/hgfw-host serve --listen 127.0.0.1:9080 --auth-file private/admin.json --services config/services.json
+```
+
+Open **http://127.0.0.1:9080** on the same development machine. The login has password-based authentication, an ephemeral session, a CSRF-protected sign-out and rate limiting. The dashboard shows live kernel network, RAM, and USB information from the machine **where the daemon actually runs**.
+
+For a non-loopback listener, a TLS certificate and key must be configured; default HTTP is intentionally local-only. The web interface exposes **read-only** state and provides no NAND, Wi-Fi, or firewall write endpoints.
+
+The CLI provides independent system inspection and an isolated LAN/WAN **plan** without applying it:
+
+```bash
+./build/hgfw-host status
+./build/hgfw-host usb
+./build/hgfw-host network-plan --config config/network.example.json
+```
+
+The service supervisor uses `config/services.json`, with an empty and disabled-by-default service list. Operators can explicitly add absolute executable paths and restart policies. External child processes run without a shell and are terminated when HGFW stops. USB mounting is available **only** through an explicit local CLI action that verifies a sysfs USB partition and mounts it read-only under a pre-provisioned directory; do not attempt that on the router until its automount behavior has been assessed.
 
 Optional developer-only compatibility rootfs:
 
@@ -122,6 +156,9 @@ This *optional* archive incorporates the locally provided stock BusyBox; it is *
 .
 ├── .github/workflows/ci.yml    # Build and tests on every push/PR
 ├── Makefile                    # Reproducible host-only commands
+├── cmd/hgfw/                  # Native Linux CLI + daemon
+├── internal/                  # Admin, device, service and USB modules
+├── config/                    # Explicit services + sample network plan
 ├── fwkit.py                    # Original userspace overlay builder/verifier
 ├── compat_rootfs.py            # Optional private compatibility build
 ├── src/
@@ -138,9 +175,9 @@ Build output, extracted proprietary firmware, calibration data, private device s
 
 1. **Hardware reference:** capture non-sensitive device-tree and kernel configuration structure, map Ethernet/switch functionality.
 2. **Userland proof:** execute the ARMv7 test program in a temporary environment and confirm compatibility.
-3. **Networking:** create separately controlled WAN/LAN, Wi-Fi, DHCP/DNS, firewall and IPv6 services.
-4. **USB services:** support removable-drive mounting, secure network file sharing and compatible print-server protocols.
-5. **Management:** develop an authenticated web UI, diagnostics, updates and rollback handling.
+3. **Networking:** validate current interfaces and planned isolated WAN/LAN topologies; implement tested, rollback-protected DHCP/DNS, firewall and Wi-Fi controls.
+4. **USB services:** verify the opt-in read-only mount flow on the device; add audited SMB/NFS file sharing and printer server support.
+5. **Management:** extend the working authenticated observation dashboard with explicitly authorized safe control operations, logs, backups and update/rollback management.
 6. **Firmware release:** implement verified boot/recovery and produce a flashable image only after safe failure recovery is established.
 
 ## Safety and legal notes

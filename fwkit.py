@@ -15,7 +15,7 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parent
 CANARY = ROOT / "build" / "hgfw-canary"
-ARTIFACT = "hgfw-stage1-armv7-overlay.tar.gz"
+ARTIFACT = "hgfw-stage2-armv7-overlay.tar.gz"
 MANIFEST = "manifest.json"
 
 # Explicit allowlist. Packaging never traverses the original filesystem or backups.
@@ -25,8 +25,11 @@ OVERLAY_FILES = {
     "usr/sbin/hgfw-status": "src/usr/sbin/hgfw-status",
     "usr/sbin/hgfw-usb": "src/usr/sbin/hgfw-usb",
     "usr/bin/hgfw-canary": "build/hgfw-canary",
+    "usr/bin/hgfw": "build/hgfw-armv7",
+    "etc/hgfw/services.json": "config/services.json",
+    "etc/hgfw/network.example.json": "config/network.example.json",
 }
-EXECUTABLES = {"usr/sbin/hgfw-status", "usr/sbin/hgfw-usb", "usr/bin/hgfw-canary"}
+EXECUTABLES = {"usr/sbin/hgfw-status", "usr/sbin/hgfw-usb", "usr/bin/hgfw-canary", "usr/bin/hgfw"}
 CHUNK = 1024 * 1024
 
 
@@ -53,9 +56,9 @@ def members():
                 "missing regular source file: {}. For ARM canary: run tools/build_arm.sh on WSL".format(file_path)
             )
         data = file_path.read_bytes()
-        if len(data) > 8 * CHUNK:
+        if len(data) > 24 * CHUNK:
             raise ValueError("packaged file unexpectedly large: " + name)
-        if name == "usr/bin/hgfw-canary":
+        if name in ("usr/bin/hgfw-canary", "usr/bin/hgfw"):
             check_canary(data)
         mode = 0o755 if name in EXECUTABLES else 0o644
         result.append((name, data, mode))
@@ -84,7 +87,7 @@ def expected_manifest(entries, archive_data):
     return {
         "schema": 1,
         "project": "HGFW",
-        "stage": "1-offline-custom-userspace",
+        "stage": "2-managed-userspace-preview",
         "target": {"platform": "brcm,bcm96846", "cpu": "ARMv7", "kernel": "stock 4.1.45 (reference)"},
         "bootable": False,
         "flashable": False,
@@ -140,7 +143,7 @@ def verify(output_dir=None):
             if m.mtime != 0:
                 raise ValueError("Non-reproducible tar timestamp")
             data = tar.extractfile(m).read()
-            if m.name == "usr/bin/hgfw-canary":
+            if m.name in ("usr/bin/hgfw-canary", "usr/bin/hgfw"):
                 check_canary(data)
             found.append({"path": m.name, "bytes": len(data), "sha256": sha256(data), "mode": oct(m.mode)})
     if found != manifest.get("files"):

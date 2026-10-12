@@ -1,27 +1,34 @@
-# HGFW offline-only build. Neither the router nor NAND is accessed.
+# HGFW host-only cross build. Never interacts with router/NAND.
 PYTHON ?= python3
-.PHONY: all arm overlay compat verify verify-compat test clean
+GO ?= go
+.PHONY: all arm go-bin host overlay compat verify test clean
 
-all: overlay verify test
+all: arm go-bin overlay verify test
 
 arm:
 	bash tools/build_arm.sh
 
-overlay: arm
+go-bin:
+	mkdir -p build
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 $(GO) build -trimpath -ldflags="-s -w" -o build/hgfw-armv7 ./cmd/hgfw
+
+host:
+	mkdir -p build
+	CGO_ENABLED=0 $(GO) build -trimpath -o build/hgfw-host ./cmd/hgfw
+
+overlay: arm go-bin
 	$(PYTHON) fwkit.py build
 
 verify:
 	$(PYTHON) fwkit.py verify
 
 test:
+	$(GO) test ./...
 	$(PYTHON) -m unittest discover -s tests -v
 
-# Optional: requires HGFW_STOCK_BUSYBOX pointing to an authorized local copy.
+# Optional PRIVATE stock BusyBox may be used for compatibility research.
 compat: overlay
 	$(PYTHON) compat_rootfs.py build
-	$(PYTHON) compat_rootfs.py verify
-
-verify-compat:
 	$(PYTHON) compat_rootfs.py verify
 
 clean:

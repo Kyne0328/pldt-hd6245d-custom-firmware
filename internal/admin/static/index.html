@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light"><title>HGFW · Device console</title>
+<link rel="stylesheet" href="/assets/style.css"><script src="/assets/app.js" defer></script></head>
+<body class="app">
+<a class="skip-link" href="#main-content">Skip to main content</a>
+<div class="shell">
+<aside class="sidebar">
+<div class="brand"><span class="brand-mark" aria-hidden="true">H<span>G</span></span><div><strong>HGFW</strong><small>DEVICE CONTROL</small></div></div>
+<nav aria-label="Dashboard sections">
+<p class="nav-label">WORKSPACE</p>
+<a href="#overview" class="active"><span class="nav-symbol" aria-hidden="true">◫</span> Overview</a>
+<a href="#interfaces"><span class="nav-symbol" aria-hidden="true">⇄</span> Interfaces</a>
+<a href="#storage"><span class="nav-symbol" aria-hidden="true">▣</span> USB storage</a>
+<a href="#services"><span class="nav-symbol" aria-hidden="true">☷</span> Services</a>
+</nav>
+<div class="sidebar-footer"><span class="signal-dot"></span> Stage 2 development<br><small>Observation mode · No device writes</small></div>
+</aside>
+<div class="workspace">
+<header class="topbar"><span class="eyebrow">SYSTEM / MONITOR</span><div class="top-actions"><span id="updated" class="muted">Connecting…</span><button id="logout" class="text-button" type="button">Sign out</button></div></header>
+<main id="main-content" tabindex="-1">
+<section id="overview" class="lead">
+<div class="lead-title"><div><p class="eyebrow">HARDWARE OVERVIEW <span class="overline-dash">—</span> BCM96846</p><h1>Device control<span class="period">.</span></h1><p class="lede">Your router, independently managed. Watch the hardware before changing the network.</p></div>
+<span class="status-tag"><span class="signal-dot"></span> OBSERVATION ONLY</span></div>
+</section>
+<div role="status" id="alert" class="notice" aria-live="polite">Connecting to the local device service…</div>
+<section aria-label="Hardware summary" class="stats">
+<div class="stat"><span class="stat-label">DEVICE MODEL</span><strong id="model" class="stat-value">—</strong><span class="stat-note">Identified by the Linux kernel</span></div>
+<div class="stat"><span class="stat-label">AVAILABLE MEMORY</span><strong id="ram" class="stat-value">—</strong><span class="stat-note">Kernel MemAvailable</span></div>
+<div class="stat"><span class="stat-label">NETWORK INTERFACES</span><strong id="ifcount" class="stat-value">—</strong><span class="stat-note">Detected interfaces</span></div>
+<div class="stat"><span class="stat-label">USB BLOCK DEVICES</span><strong id="usbcount" class="stat-value">—</strong><span class="stat-note">Disks and partitions</span></div>
+</section>
+<div class="section-grid">
+<section id="interfaces" class="panel">
+<div class="panel-heading"><div><p class="eyebrow">01 / NETWORK</p><h2>Interfaces</h2></div><span class="tiny-badge">LIVE STATE</span></div>
+<p class="panel-description">Addresses and link status are read from the running kernel. No IP or bridge changes are performed.</p>
+<div id="interface-list" class="entries"><p class="muted">Loading interfaces…</p></div>
+</section>
+<section id="storage" class="panel">
+<div class="panel-heading"><div><p class="eyebrow">02 / I/O</p><h2>USB storage</h2></div><span class="tiny-badge">READ ONLY</span></div>
+<p class="panel-description">Removable storage detected through USB sysfs. Mounting requires an explicit local CLI command.</p>
+<div id="disk-list" class="entries"><p class="muted">Loading devices…</p></div>
+</section>
+</div>
+<section id="services" class="panel wide">
+<div class="panel-heading"><div><p class="eyebrow">03 / RUNTIME</p><h2>Managed services</h2></div><span class="tiny-badge">SUPERVISOR</span></div>
+<p class="panel-description">Explicitly configured processes run under HGFW with restart limits and shutdown handling. Nothing is enabled by default.</p>
+<div id="service-list" class="entries"><p class="muted">Loading services…</p></div>
+</section>
+<footer class="footer"><span>HGFW / BCM96846</span><span>Independent firmware project · Development build</span></footer>
+</main></div></div>
+</body></html>
