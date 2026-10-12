@@ -134,6 +134,29 @@ func TestAuthRoutesAndCSRF(t *testing.T) {
 		t.Fatal("session not revoked")
 	}
 }
+func TestNullOriginIsAcceptedOnlyForHTTPSBrowserSameOrigin(t *testing.T) {
+	r := httptest.NewRequest("POST", "https://192.168.1.2:9443/login", nil)
+	r.Header.Set("Origin", "null")
+	r.Header.Set("Sec-Fetch-Site", "same-origin")
+	if !sameOrigin(r) {
+		t.Fatal("self-signed HTTPS form incorrectly rejected")
+	}
+	r.Header.Set("Sec-Fetch-Site", "cross-site")
+	if sameOrigin(r) {
+		t.Fatal("cross-site null origin accepted")
+	}
+	r.Header.Del("Sec-Fetch-Site")
+	if sameOrigin(r) {
+		t.Fatal("unattributed null origin accepted")
+	}
+	plain := httptest.NewRequest("POST", "http://192.168.1.2:9443/login", nil)
+	plain.Header.Set("Origin", "null")
+	plain.Header.Set("Sec-Fetch-Site", "same-origin")
+	if sameOrigin(plain) {
+		t.Fatal("insecure null origin accepted")
+	}
+}
+
 func TestBindSecurity(t *testing.T) {
 	for _, a := range []string{"0.0.0.0:9080", ":9080", "192.168.1.2:9080"} {
 		if SecureListen(a, "", "") == nil {

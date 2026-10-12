@@ -292,6 +292,13 @@ func (client *Backend) Handler() http.Handler {
 }
 func sameOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
+	// Browsers can emit Origin: null with an untrusted, short-lived
+	// self-signed HTTPS certificate. Fetch Metadata is a forbidden
+	// browser-controlled header: scripts on other origins cannot forge
+	// Sec-Fetch-Site: same-origin. Never accept this exception on HTTP.
+	if origin == "null" {
+		return r.TLS != nil && r.Header.Get("Sec-Fetch-Site") == "same-origin"
+	}
 	if origin == "" {
 		return r.Header.Get("Sec-Fetch-Site") != "cross-site"
 	}

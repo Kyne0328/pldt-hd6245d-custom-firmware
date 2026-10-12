@@ -77,7 +77,8 @@ func TestPreviewTLSAndShutdown(t *testing.T) {
 	}
 	post := func(path, body, csrf string, cookie *http.Cookie) *http.Response {
 		req, _ := http.NewRequest("POST", ready.URL+path, strings.NewReader(body))
-		req.Header.Set("Origin", ready.URL)
+		req.Header.Set("Origin", "null")
+		req.Header.Set("Sec-Fetch-Site", "same-origin")
 		if body != "" {
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		}
