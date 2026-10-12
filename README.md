@@ -63,13 +63,19 @@ Hardware capabilities verified on one board are not necessarily identical across
 | Routed network topology validator (no writes) | Implemented |
 | Reproducible userspace overlay + checksums | Working |
 | Offline Python and Go test suites | Working |
-| Native execution on the HG6245D | **ARMv7 canary passed** (`HGFW_EXIT=0`). Initial Stage 2 binary rejected for missing hardware FPU; rebuilt with `GOARM=7,softfloat`, awaiting physical retest |
+| Native execution on the HG6245D | **Stage 2 softfloat ARMv7 binary verified on physical BCM96846**: `version`, `status`, and `usb` each returned exit code 0 from RAM-backed tmpfs (Oct 12, 2026). Initial hardfloat build was incompatible; `GOARM=7,softfloat` fixed it. |
 | Ethernet WAN, firewall, DHCP and DNS | Planned |
 | Wireless client / repeater modes | Under investigation |
 | SMB/NAS file sharing | Planned |
 | USB printer server | Planned; requires printer compatibility testing |
 | Independent admin UI | Implemented read-only preview; router deployment untested |
 | Bootable custom image / safe installer | Blocked by boot-chain and recovery validation |
+
+### Verified non-flashing hardware test
+
+On a physical HG6245D running stock RP2613 Linux 4.1.45, the independently built HGFW Stage 2 ARMv7 binary was SHA-256 verified, copied to a temporary RAM-backed filesystem, and executed without a firmware change. The `version`, `status`, and `usb` commands all completed with exit code 0. `status` identified `Broadcom BCM96846` and enumerated stock Ethernet, switch and dual-band Wi-Fi interfaces; `usb` enumerated a removable disk and partition. The binary and temporary mount were removed afterward.
+
+**Scope:** These were read-only device-inventory commands. This does **not** verify the admin dashboard, process supervisor, USB filesystem mounting or write support, router services, new-kernel boot, or flash recovery. Device-specific network MAC addresses, passwords and raw console transcripts are intentionally not published.
 
 ## Architecture and development path
 
