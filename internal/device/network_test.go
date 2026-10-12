@@ -27,6 +27,52 @@ func TestNetworkPlan(t *testing.T) {
 		t.Fatal("outside-subnet DHCP accepted")
 	}
 }
+func TestNetworkPlanHardwareGuardAndReservedAddress(t *testing.T) {
+	base := NetworkConfig{WANInterface: "eth0", LANInterface: "br-lan", LANAddress: "192.168.50.1/24", DHCPStart: "192.168.50.100", DHCPEnd: "192.168.50.200", UpstreamMode: "dhcp"}
+	cfg := base
+	cfg.DHCPEnd = "192.168.50.255"
+	if _, e := PlanNetwork(cfg); e == nil {
+		t.Fatal("broadcast DHCP allowed")
+	}
+	cfg = base
+	cfg.DHCPStart = "192.168.50.0"
+	if _, e := PlanNetwork(cfg); e == nil {
+		t.Fatal("network DHCP address allowed")
+	}
+	cfg = base
+	cfg.LANAddress = "192.168.50.0/24"
+	if _, e := PlanNetwork(cfg); e == nil {
+		t.Fatal("network LAN address accepted")
+	}
+	cfg = base
+	cfg.WANInterface = "lo"
+	if _, e := PlanNetwork(cfg); e == nil {
+		t.Fatal("loopback accepted as WAN")
+	}
+	cfg = base
+	cfg.WANInterface = "veip0"
+	if _, e := PlanNetwork(cfg); e == nil {
+		t.Fatal("GPON virtual interface allowed")
+	}
+	cfg = base
+	cfg.WANInterface = "eth0;rm -rf"
+	if _, e := PlanNetwork(cfg); e == nil {
+		t.Fatal("bad interface token allowed")
+	}
+	cfg = base
+	if _, e := PlanAgainstInventory(cfg, []Interface{{Name: "eth0"}}); e == nil {
+		t.Fatal("nonexistent LAN accepted")
+	}
+	p, e := PlanAgainstInventory(cfg, []Interface{{Name: "eth0"}, {Name: "br-lan"}})
+	if e != nil || !p.Validated || p.AppliesChanges {
+		t.Fatalf("plan wrongly rejected: %+v %v", p, e)
+	}
+	planPath := filepath.Join(t.TempDir(), "bad.json")
+	os.WriteFile(planPath, []byte(`{"wanInterface":"eth0","lanInterface":"br-lan"}{"unknown":true}`), 0600)
+	if _, e := ReadNetworkConfig(planPath); e == nil {
+		t.Fatal("trailing JSON accepted")
+	}
+}
 func TestUSBDeviceFilter(t *testing.T) {
 	d := t.TempDir()
 	usb := filepath.Join(d, "sys", "devices", "usb1", "1-1")

@@ -119,34 +119,51 @@ function renderOverview(d, services) {
 }
 function renderNetwork(d) {
   const interfaces = hasArray(d.interfaces);
+  const inspection = d.network || {};
+  const routes = hasArray(inspection.ipv4Routes);
+  const evidence = hasArray(inspection.interfaces);
   const bridge = interfaces.find(i=>i.name==="br0") || interfaces.find(i=>/^br/.test(i.name));
   valueText("net-bridge",bridge ? bridge.name : "—");
   valueText("net-bridge-ip",bridge ? (ip4(bridge)||"No IPv4 address") : "No bridge detected");
   valueText("net-radios",interfaces.filter(radioDevice).length);
-  valueText("net-up",interfaces.filter(isUp).length + " / " + interfaces.length);
+  valueText("net-default-route",inspection.defaultInterface || "No default");
+  valueText("net-default-gateway",inspection.defaultGateway ? "Gateway: "+inspection.defaultGateway : "No IPv4 gateway reported");
+  valueText("route-count",routes.length + " routes");
+  const routeNodes = routes.map(r=>compactRow(r.default?"Default IPv4 route":r.destination+"/"+r.mask,
+    (r.interface||"unknown")+" · "+(r.gateway?"via "+r.gateway:"on-link") + " · metric "+r.metric,
+    r.default?"Default":"Kernel","ethernet"));
+  $("route-list").replaceChildren(...(routeNodes.length?routeNodes:[emptyState("No IPv4 routes detected","The route file may be absent or empty.","⇄")]));
+  const notes=hasArray(inspection.notes).slice(0,4).map(t=>el("p","evidence-note",t));
+  $("role-notes").replaceChildren(...notes);
   renderInterfaceTable(interfaces);
 }
 function renderInterfaceTable(interfaces) {
   const list = hasArray(interfaces);
   const query = $("interface-search").value.trim().toLowerCase();
+  const evidence = new Map(hasArray(latest?.device?.network?.interfaces).map(e=>[e.name,e]));
   const visible = list.filter(i => {
-    if (networkFilter !== "all" && ifaceType(i.name)!==networkFilter) return false;
-    return !query || [i.name,i.mac,...hasArray(i.addresses)].join(" ").toLowerCase().includes(query);
+    if (networkFilter !== "all" && (evidence.get(i.name)?.kind || ifaceType(i.name))!==networkFilter) return false;
+    return !query || [i.name,i.mac,evidence.get(i.name)?.role,evidence.get(i.name)?.operState,...hasArray(i.addresses)].join(" ").toLowerCase().includes(query);
   });
   valueText("interface-visible-count",visible.length + " shown");
   valueText("network-description",list.length + " interfaces reported by Linux.");
   const rows = visible.map(i=>{
     const row = el("tr");
     const nameCell = el("td");
-    nameCell.append(el("span","if-name",i.name),el("span","if-type",ifaceType(i.name).toUpperCase()));
+    const e=evidence.get(i.name)||{};
+    nameCell.append(el("span","if-name",i.name),el("span","if-type",e.role || ifaceType(i.name).toUpperCase()));
+    if(e.roleNote)nameCell.title=e.roleNote + " · confidence: " + (e.confidence || "unknown");
     const stateCell = el("td");stateCell.append(badge(isUp(i) ? "Up" : "Down",isUp(i)?"up":"down"));
+    const linkLabel=e.carrier===true?"Carrier detected":e.carrier===false?"No carrier":"Carrier unknown";
+    stateCell.append(el("span","if-type",linkLabel+(e.operState?" · "+e.operState:"")+(e.master?" · master "+e.master:"")));
     const ipCell = el("td","code-text",hasArray(i.addresses).length ? i.addresses.join(" · ") : "—");
     const macCell = el("td","code-text",i.mac || "—");
+    const trafficCell = el("td","code-text",formatBytes(e.rxBytes||0)+" / "+formatBytes(e.txBytes||0));
     const mtuCell = el("td","code-text",i.mtu || "—");
-    row.append(nameCell,stateCell,ipCell,macCell,mtuCell);
+    row.append(nameCell,stateCell,ipCell,macCell,trafficCell,mtuCell);
     return row;
   });
-  if (!rows.length) {const row=el("tr");const cell=el("td","table-empty",query || networkFilter!=="all"?"No matching interfaces. Try another search or filter.":"No interfaces reported.");cell.colSpan=5;row.append(cell);rows.push(row);}
+  if (!rows.length) {const row=el("tr");const cell=el("td","table-empty",query || networkFilter!=="all"?"No matching interfaces. Try another search or filter.":"No interfaces reported.");cell.colSpan=6;row.append(cell);rows.push(row);}
   $("interface-rows").replaceChildren(...rows);
 }
 function renderStorage(disks) {

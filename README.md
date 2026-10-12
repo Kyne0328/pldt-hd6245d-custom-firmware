@@ -60,7 +60,7 @@ Hardware capabilities verified on one board are not necessarily identical across
 | Service supervisor (explicit configurations, bounded restarts and shutdown) | Implemented; host-tested |
 | Password-protected local dashboard and live device status | **Verified on physical BCM96846:** authenticated loopback HTTP/API (`SMOKE_EXIT=0`), plus real-browser HTTPS login and dashboard on LAN (`PREVIEW_EXIT=0`, timed shutdown, Oct 12, 2026). |
 | USB device detection and opt-in read-only mount/unmount CLI | Implemented; hardware access not yet tested with HGFW |
-| Routed network topology validator (no writes) | Implemented |
+| Network Engine v1 (read-only) | Implemented: kernel IPv4 routes, sysfs link/carrier/traffic/bridge data, confidence-labeled driver roles, device-presence plan checks, supervised loopback service test; physical-device test pending |
 | Reproducible userspace overlay + checksums | Working |
 | Offline Python and Go test suites | Working |
 | Native execution on the HG6245D | **Stage 2 softfloat ARMv7 binary verified on physical BCM96846**: `version`, `status`, and `usb` each returned exit code 0 from RAM-backed tmpfs (Oct 12, 2026). Initial hardfloat build was incompatible; `GOARM=7,softfloat` fixed it. |
@@ -144,6 +144,21 @@ The outputs are generated under `dist/`:
 ### HGFW console redesign
 
 The management interface is now a proper responsive, four-view router console rather than one long inventory page. **Overview** shows a local management/network diagram, measured RAM utilization, uptime, load, wireless radio presence, USB disk counts and key device summaries. **Network** has searchable, filterable Broadcom/Linux interfaces with state, IP, MAC and MTU; **USB storage** distinguishes disks, partitions and actual mounts; **Services** shows the supervisor's live process states or a truthful empty state. Views work on mobile and desktop, refresh live every 15 seconds, and remain accessible without a third-party font, JS library or internet connection. All content is rendered from the authenticated read-only status API. Interface presence is not presented as internet connectivity or proof of control over drivers. A visual browser test of the redesigned version on the physical router is still pending.
+
+### Network Engine v1 — inspection, validation, supervised loopback
+
+The Stage 2 backend now supplies a `device.network` object in authenticated `/api/status` and `hgfw status`. Its kernel evidence comes from `/sys/class/net` and `/proc/net/route`, including interface role labels with explicit **confidence**, bridge master (when exposed), operative state, carrier (when available), link speed (when available), RX/TX counters and IPv4 routes. The Network page displays these observed values and highlights the active default IPv4 route where one exists. The engine **does not map physical LAN jack numbers** and does **not verify** Wi-Fi AP/STA mode or actual internet access; vendor-named `wan0` and GPON interfaces are not assumed functional WAN ports.
+
+```sh
+hgfw network-inspect
+hgfw network-plan --config config/network.example.json
+hgfw network-plan --config config/network.example.json --check-device
+hgfw network-selftest
+```
+
+`network-plan` validates interface-name safety, non-optical interface choices, LAN CIDR and a DHCP range excluding the router IP, subnet address and broadcast address. `--check-device` additionally requires the selected interface names to exist in the running Linux inventory and will reject the example plan on devices where those hypothetical names do not exist. **No plan is applied.** These checks do not prove routing, firewall or hardware driver feasibility.
+
+`network-selftest` starts a dedicated temporary health responder on an OS-selected `127.0.0.1` port through HGFW's existing independent process supervisor, checks the loopback HTTP response and waits for clean termination. The command produces JSON (`success`, `responseVerified`, `supervised`, `stopped`). This is *loopback-bound process isolation*, not a new Linux network namespace or a router DHCP/DNS service. It never changes interfaces, bridges, routes, DNS, WAN, wireless or flash, and the child has a 25-second upper time limit. The test was first validated on the development host; BCM96846 runtime testing is separate.
 
 ## Run the dashboard locally
 

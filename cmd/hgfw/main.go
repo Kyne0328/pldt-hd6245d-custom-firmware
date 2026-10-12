@@ -15,6 +15,7 @@ import (
 
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/admin"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/device"
+	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/netprobe"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/preview"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/services"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/smoke"
@@ -25,7 +26,7 @@ const defaultServices = "config/services.json"
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "HGFW — independent router userspace (engineering build)")
-	fmt.Fprintln(os.Stderr, "Commands: init, serve, preview, smoke, status, network-plan, usb, usb-mount, usb-unmount, version")
+	fmt.Fprintln(os.Stderr, "Commands: init, serve, preview, smoke, status, network-inspect, network-plan, network-selftest, usb, usb-mount, usb-unmount, version")
 	fmt.Fprintln(os.Stderr, "No command changes NAND, NVRAM, bridge, Wi-Fi, or firewall.")
 }
 func run(args []string) error {
@@ -81,13 +82,42 @@ func run(args []string) error {
 		return json.NewEncoder(os.Stdout).Encode(device.Snapshot())
 	case "usb":
 		return json.NewEncoder(os.Stdout).Encode(device.USBDisks("/sys/class/block", "/proc/mounts"))
+	case "network-inspect":
+		if len(args) != 1 {
+			return errors.New("network-inspect takes no options")
+		}
+		return json.NewEncoder(os.Stdout).Encode(device.Snapshot().Network)
+	case "network-selftest":
+		if len(args) != 1 {
+			return errors.New("network-selftest takes no options")
+		}
+		result, err := netprobe.SelfTest()
+		if jsonErr := json.NewEncoder(os.Stdout).Encode(result); jsonErr != nil {
+			return jsonErr
+		}
+		return err
+	case "network-probe-child":
+		if len(args) != 2 {
+			return errors.New("network-probe-child requires one loopback IPv4 address")
+		}
+		return netprobe.Child(args[1])
 	case "network-plan":
 		f := flag.NewFlagSet("network-plan", flag.ContinueOnError)
 		p := f.String("config", "config/network.example.json", "desired topology")
+		deviceCheck := f.Bool("check-device", false, "also verify interface names exist on this Linux device")
 		if e := f.Parse(args[1:]); e != nil {
 			return e
 		}
-		plan, e := device.ReadNetworkPlan(*p)
+		cfg, e := device.ReadNetworkConfig(*p)
+		if e != nil {
+			return e
+		}
+		var plan device.NetworkPlan
+		if *deviceCheck {
+			plan, e = device.PlanAgainstInventory(cfg, device.Snapshot().Interfaces)
+		} else {
+			plan, e = device.PlanNetwork(cfg)
+		}
 		if e != nil {
 			return e
 		}
