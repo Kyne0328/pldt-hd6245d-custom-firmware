@@ -10,7 +10,8 @@ arm:
 
 go-bin:
 	mkdir -p build
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 $(GO) build -trimpath -ldflags="-s -w" -o build/hgfw-armv7 ./cmd/hgfw
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7,softfloat $(GO) build -trimpath -ldflags="-s -w" -o build/hgfw-armv7 ./cmd/hgfw
+	$(GO) version -m build/hgfw-armv7 | grep -F 'GOARM=7,softfloat'
 
 host:
 	mkdir -p build

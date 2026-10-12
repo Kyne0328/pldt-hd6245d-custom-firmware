@@ -17,11 +17,14 @@ jobs:
           go-version: '1.26.9'
           cache: false
       - name: Install ARM build tools
-        run: sudo apt-get update && sudo apt-get install -y clang lld make python3
+        run: sudo apt-get update && sudo apt-get install -y clang lld make python3 qemu-user-static
       - name: Build, verify, and test the ARMv7 userspace
         run: make all
       - name: Inspect ARM output and non-flashable package markers
         run: |
           file build/hgfw-canary build/hgfw-armv7
           readelf -h build/hgfw-armv7 | grep 'Machine:.*ARM'
+          go version -m build/hgfw-armv7 | grep -F 'GOARM=7,softfloat'
+          qemu-arm-static -cpu cortex-a9,vfp=off build/hgfw-armv7 version
+          qemu-arm-static -cpu cortex-a9,vfp=off build/hgfw-armv7 usb
           python3 -c "import json; m=json.load(open('dist/manifest.json')); assert m['bootable'] is False and m['flashable'] is False"

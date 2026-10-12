@@ -63,7 +63,7 @@ Hardware capabilities verified on one board are not necessarily identical across
 | Routed network topology validator (no writes) | Implemented |
 | Reproducible userspace overlay + checksums | Working |
 | Offline Python and Go test suites | Working |
-| Native execution on the HG6245D | **ARMv7 canary passed on physical BCM96846** (`HGFW_EXIT=0`); stage-2 management daemon not yet device-tested |
+| Native execution on the HG6245D | **ARMv7 canary passed** (`HGFW_EXIT=0`). Initial Stage 2 binary rejected for missing hardware FPU; rebuilt with `GOARM=7,softfloat`, awaiting physical retest |
 | Ethernet WAN, firewall, DHCP and DNS | Planned |
 | Wireless client / repeater modes | Under investigation |
 | SMB/NAS file sharing | Planned |
@@ -104,7 +104,7 @@ cd pldt-hd6245d-custom-firmware
 make all
 ```
 
-`make all` cross-builds both the original ARM canary and a statically linked ARMv7 HGFW management daemon, assembles the overlay, verifies integrity and runs the Python and Go tests. **The build does not contact or modify any router.**
+`make all` cross-builds both the original ARM canary and a statically linked ARMv7 HGFW management daemon using **`GOARM=7,softfloat`**, assembles the overlay, verifies integrity and runs the Python and Go tests. **The build does not contact or modify any router.**
 
 The outputs are generated under `dist/`:
 
