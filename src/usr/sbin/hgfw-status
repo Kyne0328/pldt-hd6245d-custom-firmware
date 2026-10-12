@@ -1,0 +1,15 @@
+#!/bin/sh
+# HGFW: read-only diagnostic. No privileged writes or network changes.
+set -eu
+echo 'HGFW stage1 system status'
+printf 'kernel: '
+uname -r
+printf 'model: '
+if [ -r /proc/device-tree/model ]; then tr '\000' '\n' < /proc/device-tree/model; else echo unknown; fi
+printf 'available memory (kB): '
+awk '/^MemAvailable:/ {print $2; found=1} END {if(!found) print "unknown"}' /proc/meminfo
+printf 'network interfaces:\n'
+if [ -r /proc/net/dev ]; then sed -n '3,30p' /proc/net/dev | cut -d: -f1; fi
+echo 'USB devices:'
+if [ -d /sys/bus/usb/devices ]; then ls /sys/bus/usb/devices; fi
+echo 'This command is read-only. For storage details: hgfw-usb.'
