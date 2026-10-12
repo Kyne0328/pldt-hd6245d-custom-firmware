@@ -1,0 +1,32 @@
+# Generated outputs
+/build/
+/dist/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+*.egg-info/
+.DS_Store
+Thumbs.db
+
+# NEVER commit extracted firmware, NAND backups, secret configurations or disk images
+/backups/
+/analysis/
+/private/
+/secrets/
+/dumps/
+/extracted/
+/firmware-dumps/
+*.nand.bin
+*.ubi
+*.ubifs
+*.img
+*.dtb
+*.fdt
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+.env
+.env.*
