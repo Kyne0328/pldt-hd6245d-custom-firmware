@@ -212,9 +212,9 @@ function renderServices(services) {
 const featureCatalog = {
  status:[
   ["device","Device information","Live observation","Kernel, model, uptime and memory",d=>[["Model",d.model],["Kernel",d.kernel],["Uptime",readableUptime(d.uptimeSeconds)],["Available memory",formatBytes((d.memAvailableKB||0)*1024)]]],
-  ["wifi24","2.4 GHz wireless status","Kernel interface only","Driver existence and bridge membership, not SSID/channel/AP capability",d=>wirelessEvidence(d,"wl0")],
-  ["wifi5","5 GHz wireless status","Kernel interface only","Driver existence and bridge membership, not SSID/channel/AP capability",d=>wirelessEvidence(d,"wl1")],
-  ["wifi-clients","Wi-Fi clients list","Backend pending","The stock PLDT page uses a proprietary getWifiMac_IPListParam handler; HGFW does not yet have verified wireless association data",()=>[["Association list","Not available"],["ARP neighbors","Shown separately; do not assume they are Wi-Fi clients"]]],
+  ["wifi24","2.4 GHz wireless status","Read-only driver probe","Radio link and association data from the driver only if a supported read-only helper is available",d=>wirelessEvidence(d,"wl0")],
+  ["wifi5","5 GHz wireless status","Read-only driver probe","Radio link and association data from the driver only if a supported read-only helper is available",d=>wirelessEvidence(d,"wl1")],
+  ["wifi-clients","Wi-Fi clients list","Read-only driver probe","Connected clients are listed ONLY when a supported native Broadcom wl or nl80211 iw association query succeeds. ARP neighbors are not Wi-Fi clients.",d=>wirelessClientFacts(d)],
   ["lan-ports","LAN port status","Live observation","LAN 1–4 carrier and bridge observations with operator-provided mapping",d=>[["Port map",hasArray(d.lanPorts).length+" currently matched"],["Bridge",bridgeText(d)]]],
   ["dhcp-clients","DHCP client list","Backend pending","The stock DHCP lease inventory is not exposed through a verified independent HGFW source; ARP neighbors are not leases",()=>[["DHCP lease records","Unavailable"],["Observed ARP entries","See the LAN neighbor table"]]],
   ["neighbors","LAN neighbor table","Live observation","Completed IPv4 ARP entries; not a DHCP lease or Wi-Fi association list",d=>[["IPv4 ARP entries",hasArray(d.arpNeighbors).length],...hasArray(d.arpNeighbors).slice(0,16).map(n=>[n.address,n.mac+" · "+n.interface])]],
@@ -223,8 +223,8 @@ const featureCatalog = {
   ["voip","VoIP status","Interface detected only","VoIP interface presence is not voice registration or call capability",d=>[["VoIP-related interfaces",hasArray(d.interfaces).filter(i=>/^(voip|tel[0-9])/.test(i.name)).map(i=>i.name).join(", ")||"Not found"],["SIP registration","Not inspected"]]],
  ],
  network:[
-  ["wifi-config-24","2.4 GHz wireless settings","Not enabled","AP/STA configuration and SSID/channel controls require verified proprietary driver integration",d=>wirelessEvidence(d,"wl0")],
-  ["wifi-config-5","5 GHz wireless settings","Not enabled","5 GHz radio and repeater/client modes require driver verification",d=>wirelessEvidence(d,"wl1")],
+  ["wifi-config-24","2.4 GHz wireless settings","Read-only driver probe","Channel and SSID details are observed when available; AP/STA configuration writes remain disabled",d=>wirelessEvidence(d,"wl0")],
+  ["wifi-config-5","5 GHz wireless settings","Read-only driver probe","5 GHz SSID/channel observations are read-only; repeater/client configuration remains disabled",d=>wirelessEvidence(d,"wl1")],
   ["wifi-security","Wi-Fi security","Not enabled","WPA2/WPA3 credential handling, guest SSIDs and authentication changes are not available",()=>[]],
   ["wifi-power-24","2.4 GHz transmit power","Not enabled","Radio transmit power controls need verified Broadcom driver support",()=>[]],
   ["wifi-power-5","5 GHz transmit power","Not enabled","5 GHz radio power control remains unsupported by HGFW",()=>[]],
@@ -285,11 +285,35 @@ function bridgeText(d) {const br=hasArray(d.interfaces).find(i=>i.name==="br0");
 function wirelessEvidence(d,name) {
  const iface=hasArray(d.interfaces).find(i=>i.name===name);
  const evidence=hasArray(d.network?.interfaces).find(i=>i.name===name);
- return [["Kernel interface",iface?"Detected":"Not detected"],["Driver operstate",evidence?.operState||"Unknown"],["Carrier",evidence?.carrier===true?"Reported":evidence?.carrier===false?"Not reported":"Unknown"],["Bridge master",evidence?.master||"Not observed"],["Associated clients","Not verified (vendor handler required)"]];
+ const radio=hasArray(d.wireless?.radios).find(r=>r.interface===name);
+ const availability=radio?.associationStatus==="observed"?"Verified driver query": "Unavailable — no supported driver association query";
+ return [["Kernel interface",iface?"Detected":"Not detected"],["Driver operstate",evidence?.operState||"Unknown"],["Carrier",evidence?.carrier===true?"Reported":evidence?.carrier===false?"Not reported":"Unknown"],["Bridge master",evidence?.master||"Not observed"],
+ ["SSID",radio?.observedSSID||"Not available (no driver response)"],["Channel",radio?.channel||"Not available"],["Operating mode",radio?.mode||"Not verified"],["Association inventory",availability],
+ ["Associated clients",radio?.associationStatus==="observed"?String(hasArray(radio.stations).length):"Unknown (not zero)"],["Data source",radio?.source||"Kernel interface only"]];
+}
+function wirelessClientFacts(d){
+ const radios=hasArray(d.wireless?.radios);
+ const result=[];
+ if(!radios.length)return [["Wireless drivers","No supported radio interfaces found"],["Associated clients","Unknown"]]; 
+ for(const r of radios){
+  const observed=r.associationStatus==="observed";
+  const clients=hasArray(r.stations);
+  result.push([r.label+" / "+r.interface,observed?clients.length+" associated station(s)":"Driver query unavailable"]);
+  if(observed){
+   for(const st of clients.slice(0,32)){
+    const signal=st.signalDBm==null?"signal not reported":st.signalDBm+" dBm";
+    const rates=[st.rxBitrate&&"RX "+st.rxBitrate,st.txBitrate&&"TX "+st.txBitrate].filter(Boolean).join(" · ");
+    result.push([r.interface+" · "+st.mac,signal+(rates?" · "+rates:"")]);
+   }
+  }
+ }
+ result.push(["Station address privacy","MAC addresses are displayed only in this authenticated device dashboard; do not publish screenshots with addresses."]);
+ return result;
 }
 function vpnFacts(d) {
- const p=d.platform||{};
- return [["TUN character device",p.tunDevicePresent?"Present":"Not found"],["TUN kernel module",p.tunModulePresent?"Present":"Not observed"],["WireGuard kernel module",p.wireGuardModulePresent?"Present":"Not observed"],["VPN tools in PATH",hasArray(p.vpnExecutables).join(", ")||"None detected"],["VPN connection","Not configured or established by HGFW"]];
+ const p=d.platform||{},k=p.kernelEvidence||{};
+ return [["TUN character device",p.tunDevicePresent?"Present":"Not found"],["TUN misc device registration",k.tunRegistered===true?"Registered":k.tunRegistered===false?"Not registered":"Unknown"],["Kernel CONFIG_TUN",k.tunKernelConfig||"Not readable"],["TUN feasibility",k.tunAssessment||"Unverified"],
+ ["WireGuard module",p.wireGuardModulePresent?"Observed":"Not observed"],["Kernel CONFIG_WIREGUARD",k.wireGuardKernelConfig||"Not readable"],["WireGuard feasibility",k.wireGuardAssessment||"Unverified"],["Kernel XFRM status",k.xfrmStatPresent?"Status endpoint present":"Not observed"],["VPN tools in PATH",hasArray(p.vpnExecutables).join(", ")||"None detected"],["VPN connection","Not configured or established by HGFW"]];
 }
 function renderPorts(d){
  const mount=$("lan-ports"); if(!mount)return;
@@ -342,7 +366,7 @@ function renderCatalog(group,requested){
   detail.append(dl);
  }else if(!latest)detail.append(el("p","catalog-help","Waiting for authenticated device status…"));
  else detail.append(el("div","unavailable-feature","This setting is not connected to an independent HGFW implementation. No apply, save or stock-firmware write operation is available."));
- detail.append(el("p","catalog-footnote","Information source: "+(selected[2].startsWith("Live")||selected[2].includes("Kernel")||selected[2].includes("Prerequisite")?"Linux kernel / HGFW diagnostics.":"PLDT menu capability reference only.")+" The dashboard does not invoke proprietary /goform settings."));
+ detail.append(el("p","catalog-footnote","Information source: "+(selected[2].startsWith("Live")||selected[2].includes("Kernel")||selected[2].includes("Prerequisite")||selected[2].includes("driver probe")?"Linux kernel / HGFW diagnostics; optional native read-only helper.":"PLDT menu capability reference only.")+" The dashboard does not invoke proprietary /goform settings."));
  host.replaceChildren(index,detail);
 }
 function renderAllCatalogs(){

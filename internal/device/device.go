@@ -13,18 +13,19 @@ import (
 )
 
 type Status struct {
-	Model         string             `json:"model"`
-	Kernel        string             `json:"kernel"`
-	MemTotalKB    int64              `json:"memTotalKB"`
-	MemAvailKB    int64              `json:"memAvailableKB"`
-	UptimeSeconds int64              `json:"uptimeSeconds"`
-	LoadOne       float64            `json:"loadOne"`
-	Interfaces    []Interface        `json:"interfaces"`
-	Disks         []Disk             `json:"disks"`
-	Network       NetworkInspection  `json:"network"`
-	Platform      PlatformInspection `json:"platform"`
-	LANPorts      []LANPort          `json:"lanPorts"`
-	ARPNeighbors  []ARPNeighbor      `json:"arpNeighbors"`
+	Model         string              `json:"model"`
+	Kernel        string              `json:"kernel"`
+	MemTotalKB    int64               `json:"memTotalKB"`
+	MemAvailKB    int64               `json:"memAvailableKB"`
+	UptimeSeconds int64               `json:"uptimeSeconds"`
+	LoadOne       float64             `json:"loadOne"`
+	Interfaces    []Interface         `json:"interfaces"`
+	Disks         []Disk              `json:"disks"`
+	Network       NetworkInspection   `json:"network"`
+	Platform      PlatformInspection  `json:"platform"`
+	LANPorts      []LANPort           `json:"lanPorts"`
+	ARPNeighbors  []ARPNeighbor       `json:"arpNeighbors"`
+	Wireless      WirelessObservation `json:"wireless"`
 }
 type Interface struct {
 	Name      string   `json:"name"`
@@ -165,6 +166,7 @@ func Snapshot() Status {
 	}
 	sort.Slice(s.Interfaces, func(i, j int) bool { return s.Interfaces[i].Name < s.Interfaces[j].Name })
 	s.Network = InspectNetwork(s.Interfaces, "/sys/class/net", "/proc/net/route")
+	s.Wireless = SnapshotWireless(s.Model, s.Network)
 	s.Platform = SnapshotPlatform()
 	s.LANPorts = OperatorLANPorts(s.Model, s.Network.Interfaces)
 	s.ARPNeighbors = ReadARPNeighbors("/proc/net/arp")

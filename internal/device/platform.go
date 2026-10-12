@@ -13,15 +13,16 @@ import (
 // PlatformInspection contains only observations from the currently running
 // Linux kernel and executable PATH, not vendor configuration or VPN state.
 type PlatformInspection struct {
-	IPv4Forwarding         *bool    `json:"ipv4Forwarding"`
-	IPv6Forwarding         *bool    `json:"ipv6Forwarding"`
-	IPv4FirewallTables     []string `json:"ipv4FirewallTables"`
-	IPv6FirewallTables     []string `json:"ipv6FirewallTables"`
-	TUNDevicePresent       bool     `json:"tunDevicePresent"`
-	TUNModulePresent       bool     `json:"tunModulePresent"`
-	WireGuardModulePresent bool     `json:"wireGuardModulePresent"`
-	VPNExecutables         []string `json:"vpnExecutables"`
-	Notes                  []string `json:"notes"`
+	IPv4Forwarding         *bool             `json:"ipv4Forwarding"`
+	IPv6Forwarding         *bool             `json:"ipv6Forwarding"`
+	IPv4FirewallTables     []string          `json:"ipv4FirewallTables"`
+	IPv6FirewallTables     []string          `json:"ipv6FirewallTables"`
+	TUNDevicePresent       bool              `json:"tunDevicePresent"`
+	TUNModulePresent       bool              `json:"tunModulePresent"`
+	WireGuardModulePresent bool              `json:"wireGuardModulePresent"`
+	VPNExecutables         []string          `json:"vpnExecutables"`
+	Notes                  []string          `json:"notes"`
+	KernelEvidence         VPNKernelEvidence `json:"kernelEvidence"`
 }
 type ARPNeighbor struct {
 	Address   string `json:"address"`
@@ -97,6 +98,7 @@ func VPNPlatform(root string, lookPath func(string) (string, error)) PlatformIns
 			p.VPNExecutables = append(p.VPNExecutables, bin)
 		}
 	}
+	p.KernelEvidence = InspectVPNKernel(root, p.TUNDevicePresent, p.TUNModulePresent, p.WireGuardModulePresent)
 	return p
 }
 func ReadARPNeighbors(path string) []ARPNeighbor {

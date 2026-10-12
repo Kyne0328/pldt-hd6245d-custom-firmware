@@ -28,6 +28,8 @@ jobs:
           qemu-arm-static -cpu cortex-a9,vfp=off build/hgfw-armv7 version
           qemu-arm-static -cpu cortex-a9,vfp=off build/hgfw-armv7 usb
           qemu-arm-static -cpu cortex-a9,vfp=off build/hgfw-armv7 network-inspect
+          qemu-arm-static -cpu cortex-a9,vfp=off build/hgfw-armv7 wireless-inspect
+          qemu-arm-static -cpu cortex-a9,vfp=off build/hgfw-armv7 vpn-inspect
           make host
           timeout 25s build/hgfw-host network-selftest | python3 -c "import json,sys; v=json.load(sys.stdin); assert all(v[k] for k in ('success','responseVerified','supervised','stopped'))"
           timeout 90s qemu-arm-static -cpu cortex-a9,vfp=off build/hgfw-armv7 smoke

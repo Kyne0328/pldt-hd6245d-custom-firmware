@@ -18,7 +18,7 @@ func TestStockMenuMappedIntoIndependentConsole(t *testing.T) {
 			t.Fatalf("missing console section %q", id)
 		}
 	}
-	labels := []string{"Wi-Fi clients list", "VPN pass-through (GRE)", "IPsec pass-through", "WireGuard VPN", "OpenVPN", "Dynamic DNS", "Firmware update", "Port forwarding", "Parental controls", "VoIP status", "Optical status", "DHCP client list"}
+	labels := []string{"Wi-Fi clients list", "Read-only driver probe", "wirelessClientFacts", "Kernel CONFIG_TUN", "WireGuard feasibility", "VPN pass-through (GRE)", "IPsec pass-through", "WireGuard VPN", "OpenVPN", "Dynamic DNS", "Firmware update", "Port forwarding", "Parental controls", "VoIP status", "Optical status", "DHCP client list"}
 	for _, label := range labels {
 		if !bytes.Contains(appJS, []byte(label)) {
 			t.Fatalf("missing feature %q", label)

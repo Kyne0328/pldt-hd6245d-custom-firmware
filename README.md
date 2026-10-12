@@ -64,8 +64,8 @@ Hardware capabilities verified on one board are not necessarily identical across
 | Reproducible userspace overlay + checksums | Working |
 | Offline Python and Go test suites | Working |
 | Native execution on the HG6245D | **Stage 2 softfloat ARMv7 binary verified on physical BCM96846**: `version`, `status`, and `usb` each returned exit code 0 from RAM-backed tmpfs (Oct 12, 2026). Initial hardfloat build was incompatible; `GOARM=7,softfloat` fixed it. |
-| Ethernet WAN, firewall, DHCP and DNS | Planned |
-| Wireless client / repeater modes | Under investigation |
+| Ethernet WAN, firewall, DHCP and DNS | Read-only diagnostics implemented; independent DHCP/DNS/firewall/routing changes pending. |
+| Wireless client / repeater modes | Wireless Engine v1 read-only helper support (`wl assoclist` or `iw station dump` if available); genuine association inventories require a supported driver query on the physical router. AP/STA/repeater configuration still pending. |
 | SMB/NAS file sharing | Planned |
 | USB printer server | Planned; requires printer compatibility testing |
 | Independent admin UI | Eight-view router console: Overview, Status, Network, Security, Applications/VPN, Management, USB Storage, and Services; live kernel diagnostics plus explicit unimplemented states. Host browser tested; latest hardware retest pending. |
@@ -145,6 +145,20 @@ The outputs are generated under `dist/`:
 
 The management interface is now a proper responsive, four-view router console rather than one long inventory page. **Overview** shows a local management/network diagram, measured RAM utilization, uptime, load, wireless radio presence, USB disk counts and key device summaries. **Network** has searchable, filterable Broadcom/Linux interfaces with state, IP, MAC and MTU; **USB storage** distinguishes disks, partitions and actual mounts; **Services** shows the supervisor's live process states or a truthful empty state. Views work on mobile and desktop, refresh live every 15 seconds, and remain accessible without a third-party font, JS library or internet connection. All content is rendered from the authenticated read-only status API. Interface presence is not presented as internet connectivity or proof of control over drivers. A visual browser test of the redesigned version on the physical router is still pending.
 
+### Wireless Engine v1 and VPN kernel assessment
+
+`hgfw wireless-inspect` and the authenticated **Status -> Wi-Fi clients / 2.4 GHz / 5 GHz** pages now attempt *strictly read-only* native association queries: the Broadcom `wl -i wlN assoclist` driver helper when present, or `iw dev wlN station dump` for compatible nl80211 drivers. Radio SSID and channel are read through permitted `wl ... ssid/channel` or `iw ... info` queries only when the helper responds. Each command has a 900 ms timeout, an output bound and fixed arguments. Neither helper is bundled in HGFW. The extracted original application partition did **not** include a standalone `wl` or `iw` executable, although its proprietary `webs` webserver references a native Wi-Fi station enumeration routine; whether an appropriate native helper exists on the *running* router is not established. A missing/unsupported driver query is reported as **unavailable**, not as zero connected stations. Never interpret IPv4 ARP neighbors as authenticated Wi-Fi associations. Associated MAC addresses are shown only in the authenticated dashboard/explicit local CLI output; do not post raw client lists publicly.
+
+`hgfw vpn-inspect` and **Applications -> VPN overview** distinguish the TUN character node, kernel `/proc/misc` TUN registration, available module/sysfs evidence, optional `/proc/config.gz` or `/boot/config-*` `CONFIG_TUN`/`CONFIG_WIREGUARD` flags and presence of `/proc/net/xfrm_stat`. A bounded kernel-config reader extracts just these booleans. No TUN device is opened, no `TUNSETIFF` ioctl is invoked and no kernel modules or routes are changed. This is **VPN feasibility evidence**, not a working VPN tunnel, keys or authenticated server/client.
+
+Read-only commands for a RAM-only HG6245D hardware test (the JSON can contain Wi-Fi MACs and an SSID, so redact before sharing):
+
+```sh
+/mnt/hgfw-run/hgfw wireless-inspect
+/mnt/hgfw-run/hgfw vpn-inspect
+```
+
+Real wireless association support requires confirming a compatible device utility or implementing a carefully verified independent vendor driver query layer. WireGuard/OpenVPN functionality remains blocked until TUN feasibility, kernel compatibility, routing, credential storage and software-only rollback can be validated on hardware. No flash or current network configuration changes occur.
 ### Full router-console feature map (Stage 2 read-only)
 
 HGFW now uses the **five original PLDT administration areas** as an independently implemented navigation framework: **Status**, **Network**, **Security**, **Applications**, and **Management**. Existing **Overview**, **USB Storage**, and **Services** remain available. This structure was derived from offline analysis of the private stock menu XML and matching ASP entry points, **not** from copying vendor JavaScript or compiled binaries into HGFW. The original Wi-Fi client table was traced to `wireless/wifimaclist.asp` and a compiled `getWifiMac_IPListParam` handler. Stock GRE and IPsec pass-through pages submit to private `/goform/setVPNEnable` and `/goform/setIpsecEnable`; neither page proves VPN server availability.

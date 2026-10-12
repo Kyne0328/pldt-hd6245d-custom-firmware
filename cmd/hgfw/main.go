@@ -26,7 +26,7 @@ const defaultServices = "config/services.json"
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "HGFW — independent router userspace (engineering build)")
-	fmt.Fprintln(os.Stderr, "Commands: init, serve, preview, smoke, status, network-inspect, network-plan, network-selftest, usb, usb-mount, usb-unmount, version")
+	fmt.Fprintln(os.Stderr, "Commands: init, serve, preview, smoke, status, network-inspect, network-plan, network-selftest, wireless-inspect, vpn-inspect, usb, usb-mount, usb-unmount, version")
 	fmt.Fprintln(os.Stderr, "No command changes NAND, NVRAM, bridge, Wi-Fi, or firewall.")
 }
 func run(args []string) error {
@@ -82,6 +82,17 @@ func run(args []string) error {
 		return json.NewEncoder(os.Stdout).Encode(device.Snapshot())
 	case "usb":
 		return json.NewEncoder(os.Stdout).Encode(device.USBDisks("/sys/class/block", "/proc/mounts"))
+	case "wireless-inspect":
+		if len(args) != 1 {
+			return errors.New("wireless-inspect takes no arguments")
+		}
+		s := device.Snapshot()
+		return json.NewEncoder(os.Stdout).Encode(s.Wireless)
+	case "vpn-inspect":
+		if len(args) != 1 {
+			return errors.New("vpn-inspect takes no arguments")
+		}
+		return json.NewEncoder(os.Stdout).Encode(device.SnapshotPlatform())
 	case "network-inspect":
 		if len(args) != 1 {
 			return errors.New("network-inspect takes no options")
