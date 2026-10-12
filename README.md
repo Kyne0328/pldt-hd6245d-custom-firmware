@@ -63,7 +63,7 @@ Hardware capabilities verified on one board are not necessarily identical across
 | Routed network topology validator (no writes) | Implemented |
 | Reproducible userspace overlay + checksums | Working |
 | Offline Python and Go test suites | Working |
-| Temporary execution on the actual router | Not yet tested |
+| Native execution on the HG6245D | **ARMv7 canary passed on physical BCM96846** (`HGFW_EXIT=0`); stage-2 management daemon not yet device-tested |
 | Ethernet WAN, firewall, DHCP and DNS | Planned |
 | Wireless client / repeater modes | Under investigation |
 | SMB/NAS file sharing | Planned |
