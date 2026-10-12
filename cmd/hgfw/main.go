@@ -15,6 +15,8 @@ import (
 
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/admin"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/device"
+	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/dnscore"
+	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/fieldcheck"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/netprobe"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/preview"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/services"
@@ -26,7 +28,7 @@ const defaultServices = "config/services.json"
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "HGFW — independent router userspace (engineering build)")
-	fmt.Fprintln(os.Stderr, "Commands: init, serve, preview, smoke, status, network-inspect, network-plan, network-selftest, wireless-inspect, vpn-inspect, usb, usb-mount, usb-unmount, version")
+	fmt.Fprintln(os.Stderr, "Commands: init, serve, preview, smoke, status, field-check, dns-selftest, network-inspect, network-plan, network-selftest, wireless-inspect, vpn-inspect, usb, usb-mount, usb-unmount, version")
 	fmt.Fprintln(os.Stderr, "No command changes NAND, NVRAM, bridge, Wi-Fi, or firewall.")
 }
 func run(args []string) error {
@@ -76,6 +78,24 @@ func run(args []string) error {
 		result, err := smoke.Run()
 		if jsonErr := json.NewEncoder(os.Stdout).Encode(result); jsonErr != nil {
 			return jsonErr
+		}
+		return err
+	case "field-check":
+		if len(args) != 1 {
+			return errors.New("field-check takes no arguments")
+		}
+		res, err := fieldcheck.Run()
+		if e := json.NewEncoder(os.Stdout).Encode(res); e != nil {
+			return e
+		}
+		return err
+	case "dns-selftest":
+		if len(args) != 1 {
+			return errors.New("dns-selftest takes no arguments")
+		}
+		res, err := dnscore.SelfTest()
+		if e := json.NewEncoder(os.Stdout).Encode(res); e != nil {
+			return e
 		}
 		return err
 	case "status":

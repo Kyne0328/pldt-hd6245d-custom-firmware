@@ -70,6 +70,10 @@ func PlanNetwork(c NetworkConfig) (NetworkPlan, error) {
 	if start == lan.Masked().Addr() || end == bcast || start == bcast || end == lan.Masked().Addr() {
 		return p, errors.New("DHCP range cannot contain network or broadcast addresses")
 	}
+	// A range spanning the local gateway is unsafe even if neither endpoint equals it.
+	if start.Compare(lan.Addr()) <= 0 && end.Compare(lan.Addr()) >= 0 {
+		return p, errors.New("DHCP pool overlaps the LAN gateway address")
+	}
 	if c.UpstreamMode != "dhcp" && c.UpstreamMode != "static" {
 		return p, errors.New("upstream mode must be dhcp or static")
 	}

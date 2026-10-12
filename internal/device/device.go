@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Status struct {
@@ -25,6 +26,8 @@ type Status struct {
 	Platform      PlatformInspection  `json:"platform"`
 	LANPorts      []LANPort           `json:"lanPorts"`
 	ARPNeighbors  []ARPNeighbor       `json:"arpNeighbors"`
+	Resolvers     ResolverInspection  `json:"resolvers"`
+	DHCPLeases    DHCPLeaseEvidence   `json:"dhcpLeases"`
 	Wireless      WirelessObservation `json:"wireless"`
 }
 type Interface struct {
@@ -170,5 +173,10 @@ func Snapshot() Status {
 	s.Platform = SnapshotPlatform()
 	s.LANPorts = OperatorLANPorts(s.Model, s.Network.Interfaces)
 	s.ARPNeighbors = ReadARPNeighbors("/proc/net/arp")
+	s.Resolvers = InspectResolvers("/etc/resolv.conf")
+	AssociateARP(s.Wireless.Radios, s.ARPNeighbors)
+	// Optional standard dnsmasq lease evidence only, never assume a stock
+	// proprietary DHCP file or assign an IP based on lease text alone.
+	s.DHCPLeases = InspectDHCPLeaseEvidence(s.Wireless.Radios, "/var/lib/misc/dnsmasq.leases", time.Now())
 	return s
 }

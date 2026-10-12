@@ -216,7 +216,7 @@ const featureCatalog = {
   ["wifi5","5 GHz wireless status","Read-only driver probe","Radio link and association data from the driver only if a supported read-only helper is available",d=>wirelessEvidence(d,"wl1")],
   ["wifi-clients","Wi-Fi clients list","Read-only driver probe","Connected clients are listed ONLY when a supported native Broadcom wl or nl80211 iw association query succeeds. ARP neighbors are not Wi-Fi clients.",d=>wirelessClientFacts(d)],
   ["lan-ports","LAN port status","Live observation","LAN 1–4 carrier and bridge observations with operator-provided mapping",d=>[["Port map",hasArray(d.lanPorts).length+" currently matched"],["Bridge",bridgeText(d)]]],
-  ["dhcp-clients","DHCP client list","Backend pending","The stock DHCP lease inventory is not exposed through a verified independent HGFW source; ARP neighbors are not leases",()=>[["DHCP lease records","Unavailable"],["Observed ARP entries","See the LAN neighbor table"]]],
+  ["dhcp-clients","DHCP client list","Backend pending","Lease records are not independently verified. Wi-Fi MACs may be correlated to kernel ARP observations, but these are NOT DHCP leases",d=>[["Standard dnsmasq lease file",d.dhcpLeases?.available?"Present (only validated entries considered)":"Unavailable; stock DHCP source unverified"],["Wireless lease host labels",d.dhcpLeases?.matchedWirelessNames||0],["Observed ARP entries",hasArray(d.arpNeighbors).length+" kernel neighbors"],["Wi-Fi/ARP links",hasArray(d.wireless?.radios).reduce((n,r)=>n+hasArray(r.stations).filter(s=>Boolean(s.neighborIPv4)).length,0)+" matched by MAC; not leases"]]],
   ["neighbors","LAN neighbor table","Live observation","Completed IPv4 ARP entries; not a DHCP lease or Wi-Fi association list",d=>[["IPv4 ARP entries",hasArray(d.arpNeighbors).length],...hasArray(d.arpNeighbors).slice(0,16).map(n=>[n.address,n.mac+" · "+n.interface])]],
   ["wan-status","WAN status","Kernel routes only","Default route observation is not proof of an upstream connection",d=>[["Default route",d.network?.defaultInterface||"None reported"],["Gateway",d.network?.defaultGateway||"None reported"]]],
   ["optical","Optical status","Interface detected only","GPON/OMCI interface metadata; optical RX/TX power not exposed by this backend",d=>[["Optical interface",hasArray(d.interfaces).filter(i=>/^(sfu|gpon|veip)/.test(i.name)).map(i=>i.name).join(", ")||"Not found"],["Optical power","Not measured"]]],
@@ -231,6 +231,7 @@ const featureCatalog = {
   ["wps","Wi-Fi Protected Setup","Not enabled","WPS status and configuration cannot be verified and are not exposed for activation",()=>[]],
   ["lan-config","LAN & DHCP","Not enabled","The independent network-plan validator works offline; DHCP configuration is not applied",d=>[["Bridge",bridgeText(d)],["IPv4 forwarding",triState(d.platform?.ipv4Forwarding)]]],
   ["wan-config","Broadband / WAN","Not enabled","WAN interface binding and connectivity must be tested with verified recovery",d=>[["Kernel default route",d.network?.defaultInterface||"None reported"]]],
+  ["dns-resolvers","Linux DNS resolvers","Read-only observation","Observed Linux resolver file, not a validated upstream, DHCP DNS option or an active HGFW DNS daemon",d=>[["Resolver file",d.resolvers?.available?"Readable":"Unavailable"],["Name servers",hasArray(d.resolvers?.nameservers).join(", ")||"None exposed"],["Independent DNS engine","Static loopback responder self-tested; LAN DNS not enabled"]]],
   ["iptv","IPTV & VLANs","Not enabled","Physical switch VLAN assignment is unverified on this hardware variant",()=>[]],
   ["ipv6","IPv6","Kernel flag only","IPv6 routing and firewall configuration is not enabled",d=>[["IPv6 forwarding",triState(d.platform?.ipv6Forwarding)]]],
   ["remote-isp","Remote management (TR-069)","Not enabled","Vendor provisioning and ISP access controls are intentionally excluded",()=>[]],
@@ -303,7 +304,9 @@ function wirelessClientFacts(d){
    for(const st of clients.slice(0,32)){
     const signal=st.signalDBm==null?"signal not reported":st.signalDBm+" dBm";
     const rates=[st.rxBitrate&&"RX "+st.rxBitrate,st.txBitrate&&"TX "+st.txBitrate].filter(Boolean).join(" · ");
-    result.push([r.interface+" · "+st.mac,signal+(rates?" · "+rates:"")]);
+    const neighbor=st.neighborIPv4?" · ARP IPv4 "+st.neighborIPv4+" (kernel neighbor, NOT DHCP)":" · IP not established";
+    const label=st.leaseHostname?" · Lease label: "+st.leaseHostname+" (unverified identity)":"";
+    result.push([r.interface+" · "+st.mac,signal+(rates?" · "+rates:"")+neighbor+label]);
    }
   }
  }

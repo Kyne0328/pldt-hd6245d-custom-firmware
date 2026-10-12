@@ -45,6 +45,11 @@ func TestNetworkPlanHardwareGuardAndReservedAddress(t *testing.T) {
 		t.Fatal("network LAN address accepted")
 	}
 	cfg = base
+	cfg.LANAddress = "192.168.50.150/24"
+	if _, e := PlanNetwork(cfg); e == nil {
+		t.Fatal("DHCP pool containing gateway accepted")
+	}
+	cfg = base
 	cfg.WANInterface = "lo"
 	if _, e := PlanNetwork(cfg); e == nil {
 		t.Fatal("loopback accepted as WAN")

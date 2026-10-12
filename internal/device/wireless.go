@@ -36,7 +36,11 @@ type WirelessStation struct {
 	SignalDBm *int   `json:"signalDBm,omitempty"`
 	RXBitrate string `json:"rxBitrate,omitempty"`
 	TXBitrate string `json:"txBitrate,omitempty"`
-	Source    string `json:"source"`
+	// The IPv4 address is separately observed from ARP, never inferred as a DHCP lease.
+	NeighborIPv4      string `json:"neighborIPv4,omitempty"`
+	NeighborInterface string `json:"neighborInterface,omitempty"`
+	LeaseHostname     string `json:"leaseHostname,omitempty"`
+	Source            string `json:"source"`
 }
 
 var macMatcher = regexp.MustCompile(`(?i)\b(?:[0-9a-f]{2}:){5}[0-9a-f]{2}\b`)
