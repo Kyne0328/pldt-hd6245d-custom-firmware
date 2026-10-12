@@ -58,7 +58,7 @@ Hardware capabilities verified on one board are not necessarily identical across
 | Original firmware preservation / hardware investigation | Completed locally; private backups **not included** here |
 | ARMv7 static cross-compilation | Working |
 | Service supervisor (explicit configurations, bounded restarts and shutdown) | Implemented; host-tested |
-| Password-protected local dashboard and live device status | Implemented; host-tested |
+| Password-protected local dashboard and live device status | Implemented; host-tested, QEMU ARMv7 no-VFP login/API/CSRF/logout smoke test passed; physical dashboard test pending |
 | USB device detection and opt-in read-only mount/unmount CLI | Implemented; hardware access not yet tested with HGFW |
 | Routed network topology validator (no writes) | Implemented |
 | Reproducible userspace overlay + checksums | Working |
@@ -70,6 +70,18 @@ Hardware capabilities verified on one board are not necessarily identical across
 | USB printer server | Planned; requires printer compatibility testing |
 | Independent admin UI | Implemented read-only preview; router deployment untested |
 | Bootable custom image / safe installer | Blocked by boot-chain and recovery validation |
+
+### Loopback dashboard smoke test
+
+Run `hgfw smoke` with the native host executable or the ARMv7 executable. It starts the real admin HTTP handler on an **OS-assigned loopback-only TCP port**, uses a temporary random password held only in memory, and checks anonymous access denial, login, protected dashboard and JSON API, CSRF enforcement, logout revocation, server shutdown, and process memory usage. It writes no credentials, makes no router configuration changes, and prints a JSON summary without passwords or device MAC addresses.
+
+```sh
+./build/hgfw-host smoke
+# For an HG6245D, run the verified ARM softfloat binary from tmpfs:
+# /mnt/hgfw-run/hgfw smoke
+```
+
+The full end-to-end smoke test has passed on the **no-VFP ARM emulator**. Execution of the dashboard smoke test on the physical device is the next validation milestone. Because it binds to the router's 127.0.0.1, it is intentionally not browsable from another computer on the LAN.
 
 ### Verified non-flashing hardware test
 

@@ -16,6 +16,7 @@ import (
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/admin"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/device"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/services"
+	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/smoke"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/storage"
 )
 
@@ -23,7 +24,7 @@ const defaultServices = "config/services.json"
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "HGFW — independent router userspace (engineering build)")
-	fmt.Fprintln(os.Stderr, "Commands: init, serve, status, network-plan, usb, usb-mount, usb-unmount, version")
+	fmt.Fprintln(os.Stderr, "Commands: init, serve, smoke, status, network-plan, usb, usb-mount, usb-unmount, version")
 	fmt.Fprintln(os.Stderr, "No command changes NAND, NVRAM, bridge, Wi-Fi, or firewall.")
 }
 func run(args []string) error {
@@ -35,6 +36,15 @@ func run(args []string) error {
 	case "version":
 		fmt.Println("HGFW stage2 armv7 development — no flash support")
 		return nil
+	case "smoke":
+		if len(args) != 1 {
+			return errors.New("smoke takes no arguments")
+		}
+		result, err := smoke.Run()
+		if jsonErr := json.NewEncoder(os.Stdout).Encode(result); jsonErr != nil {
+			return jsonErr
+		}
+		return err
 	case "status":
 		return json.NewEncoder(os.Stdout).Encode(device.Snapshot())
 	case "usb":

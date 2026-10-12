@@ -27,4 +27,5 @@ jobs:
           go version -m build/hgfw-armv7 | grep -F 'GOARM=7,softfloat'
           qemu-arm-static -cpu cortex-a9,vfp=off build/hgfw-armv7 version
           qemu-arm-static -cpu cortex-a9,vfp=off build/hgfw-armv7 usb
+          timeout 90s qemu-arm-static -cpu cortex-a9,vfp=off build/hgfw-armv7 smoke
           python3 -c "import json; m=json.load(open('dist/manifest.json')); assert m['bootable'] is False and m['flashable'] is False"
