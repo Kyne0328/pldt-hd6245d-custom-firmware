@@ -58,7 +58,7 @@ Hardware capabilities verified on one board are not necessarily identical across
 | Original firmware preservation / hardware investigation | Completed locally; private backups **not included** here |
 | ARMv7 static cross-compilation | Working |
 | Service supervisor (explicit configurations, bounded restarts and shutdown) | Implemented; host-tested |
-| Password-protected local dashboard and live device status | Implemented; host-tested, QEMU ARMv7 no-VFP login/API/CSRF/logout smoke test passed; physical dashboard test pending |
+| Password-protected local dashboard and live device status | **Confirmed on physical BCM96846:** loopback HTTP, login, authenticated dashboard/API, CSRF, logout, clean shutdown (`SMOKE_EXIT=0`) |
 | USB device detection and opt-in read-only mount/unmount CLI | Implemented; hardware access not yet tested with HGFW |
 | Routed network topology validator (no writes) | Implemented |
 | Reproducible userspace overlay + checksums | Working |
@@ -81,7 +81,7 @@ Run `hgfw smoke` with the native host executable or the ARMv7 executable. It sta
 # /mnt/hgfw-run/hgfw smoke
 ```
 
-The full end-to-end smoke test has passed on the **no-VFP ARM emulator**. Execution of the dashboard smoke test on the physical device is the next validation milestone. Because it binds to the router's 127.0.0.1, it is intentionally not browsable from another computer on the LAN.
+The full end-to-end smoke test passed on **both the no-VFP ARM emulator and a physical HG6245D** running stock Broadcom Linux 4.1.45 (October 12, 2026). The physical test returned `SMOKE_EXIT=0`, all seven security/lifecycle checks true, 37 interfaces, two USB block-device entries (one disk and one partition), 12,020 KiB peak RSS, and 9,647 ms elapsed. It used `127.0.0.1:ephemeral` and automatically shut down. This establishes backend behavior, not browser rendering, long-running reliability, full USB filesystem support, router/network configuration control, or an independently bootable firmware. Because it binds to the router's 127.0.0.1, it is intentionally not browsable from another computer on the LAN.
 
 ### Verified non-flashing hardware test
 
