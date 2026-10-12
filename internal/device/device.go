@@ -13,12 +13,14 @@ import (
 )
 
 type Status struct {
-	Model      string      `json:"model"`
-	Kernel     string      `json:"kernel"`
-	MemTotalKB int64       `json:"memTotalKB"`
-	MemAvailKB int64       `json:"memAvailableKB"`
-	Interfaces []Interface `json:"interfaces"`
-	Disks      []Disk      `json:"disks"`
+	Model         string      `json:"model"`
+	Kernel        string      `json:"kernel"`
+	MemTotalKB    int64       `json:"memTotalKB"`
+	MemAvailKB    int64       `json:"memAvailableKB"`
+	UptimeSeconds int64       `json:"uptimeSeconds"`
+	LoadOne       float64     `json:"loadOne"`
+	Interfaces    []Interface `json:"interfaces"`
+	Disks         []Disk      `json:"disks"`
 }
 type Interface struct {
 	Name      string   `json:"name"`
@@ -135,6 +137,16 @@ func Snapshot() Status {
 	}
 	mi := meminfo("/proc/meminfo")
 	s.MemTotalKB, s.MemAvailKB = mi["MemTotal"], mi["MemAvailable"]
+	if fields := strings.Fields(fileText("/proc/uptime")); len(fields) > 0 {
+		if n, e := strconv.ParseFloat(fields[0], 64); e == nil {
+			s.UptimeSeconds = int64(n)
+		}
+	}
+	if fields := strings.Fields(fileText("/proc/loadavg")); len(fields) > 0 {
+		if n, e := strconv.ParseFloat(fields[0], 64); e == nil {
+			s.LoadOne = n
+		}
+	}
 	ifaces, e := net.Interfaces()
 	if e == nil {
 		for _, i := range ifaces {

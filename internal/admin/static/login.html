@@ -1,20 +1,21 @@
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light"><title>Sign in — HGFW</title>
-<link rel="stylesheet" href="/assets/style.css"></head>
+<meta name="color-scheme" content="light"><meta name="theme-color" content="#102238">
+<title>Sign in · HGFW Console</title><link rel="stylesheet" href="/assets/style.css"></head>
 <body class="login-page">
 <main class="login-card" aria-labelledby="title">
-<div class="brand"><span class="brand-mark" aria-hidden="true">H<span>G</span></span><div><strong>HGFW</strong><small>DEVICE CONTROL</small></div></div>
-<p class="eyebrow">Secure access · Local controller</p>
-<h1 id="title">Sign in to your device.</h1>
-<p class="muted">Administration is restricted to authorized operators. This build is an engineering preview.</p>
-<form method="post" action="/login">
-<label for="password">Administrator password</label>
-<input id="password" name="password" type="password" required minlength="12" autocomplete="current-password" autofocus>
-<button type="submit" class="primary">Continue to dashboard <span aria-hidden="true">↗</span></button>
-</form>
-<div class="login-footer"><span class="signal-dot" aria-hidden="true"></span> Access protected by salted password verification and session authentication.</div>
+  <a href="/login" class="brand"><span class="brand-emblem" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none"><path d="M9 12h22M9 20h15M9 28h22" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/><circle cx="30" cy="20" r="3.5" fill="currentColor"/></svg></span><span class="brand-copy"><strong>HGFW<span class="brand-dot">.</span></strong><small>DEVICE CONSOLE</small></span></a>
+  <p class="eyebrow">SECURE MANAGEMENT</p>
+  <h1 id="title">Welcome back<span class="accent-mark">.</span></h1>
+  <p class="muted">Sign in to view your device's live status, network interfaces and USB storage.</p>
+  <form method="post" action="/login">
+    <input type="hidden" name="username" value="admin" autocomplete="username">
+    <label for="password">Administrator password</label>
+    <input id="password" name="password" type="password" required minlength="12" autocomplete="current-password" autofocus>
+    <button type="submit" class="primary">Open dashboard <span aria-hidden="true">→</span></button>
+  </form>
+  <div class="login-footer"><span class="status-beacon" aria-hidden="true"></span> Protected session · Device observation only</div>
 </main>
 </body>
 </html>

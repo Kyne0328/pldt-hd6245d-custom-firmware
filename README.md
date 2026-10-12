@@ -68,7 +68,7 @@ Hardware capabilities verified on one board are not necessarily identical across
 | Wireless client / repeater modes | Under investigation |
 | SMB/NAS file sharing | Planned |
 | USB printer server | Planned; requires printer compatibility testing |
-| Independent admin UI | Implemented read-only preview; router deployment untested |
+| Independent admin UI | Redesigned read-only console with Overview, Network, USB Storage, and Services views; desktop/mobile host-browser tested. Revised visual design awaiting physical-device retest. |
 | Bootable custom image / safe installer | Blocked by boot-chain and recovery validation |
 
 ### Loopback dashboard smoke test
@@ -99,7 +99,7 @@ The preview binds only to an IPv4 address already assigned to the device; wildca
 
 On a physical HG6245D running stock RP2613 Linux 4.1.45, the independently built HGFW Stage 2 ARMv7 binary was SHA-256 verified, copied to a temporary RAM-backed filesystem, and executed without a firmware change. The `version`, `status`, and `usb` commands all completed with exit code 0. `status` identified `Broadcom BCM96846` and enumerated stock Ethernet, switch and dual-band Wi-Fi interfaces; `usb` enumerated a removable disk and partition. The binary and temporary mount were removed afterward.
 
-**Scope:** These were read-only device-inventory commands. This does **not** verify the admin dashboard, process supervisor, USB filesystem mounting or write support, router services, new-kernel boot, or flash recovery. Device-specific network MAC addresses, passwords and raw console transcripts are intentionally not published.
+**Scope:** These were read-only device-inventory commands. Separate follow-up tests successfully verified the authenticated dashboard on physical hardware, but did not verify USB filesystem mounting, process supervision, router control, a new-kernel boot, or flash recovery. Device-specific network MAC addresses, passwords and raw console transcripts are intentionally not published.
 
 ## Architecture and development path
 
@@ -140,6 +140,10 @@ The outputs are generated under `dist/`:
 
 - `hgfw-stage2-armv7-overlay.tar.gz` — nonbootable ARMv7 userspace overlay containing the HGFW daemon, canary, default configuration and read-only diagnostics.
 - `manifest.json` and `*.sha256` — build metadata and integrity checks.
+
+### HGFW console redesign
+
+The management interface is now a proper responsive, four-view router console rather than one long inventory page. **Overview** shows a local management/network diagram, measured RAM utilization, uptime, load, wireless radio presence, USB disk counts and key device summaries. **Network** has searchable, filterable Broadcom/Linux interfaces with state, IP, MAC and MTU; **USB storage** distinguishes disks, partitions and actual mounts; **Services** shows the supervisor's live process states or a truthful empty state. Views work on mobile and desktop, refresh live every 15 seconds, and remain accessible without a third-party font, JS library or internet connection. All content is rendered from the authenticated read-only status API. Interface presence is not presented as internet connectivity or proof of control over drivers. A visual browser test of the redesigned version on the physical router is still pending.
 
 ## Run the dashboard locally
 
