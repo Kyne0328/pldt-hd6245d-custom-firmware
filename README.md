@@ -58,7 +58,7 @@ Hardware capabilities verified on one board are not necessarily identical across
 | Original firmware preservation / hardware investigation | Completed locally; private backups **not included** here |
 | ARMv7 static cross-compilation | Working |
 | Service supervisor (explicit configurations, bounded restarts and shutdown) | Implemented; host-tested |
-| Password-protected local dashboard and live device status | **Confirmed on physical BCM96846:** loopback HTTP, login, authenticated dashboard/API, CSRF, logout, clean shutdown (`SMOKE_EXIT=0`). Temporary LAN HTTPS visual preview implemented, not yet tested on the router. |
+| Password-protected local dashboard and live device status | **Verified on physical BCM96846:** authenticated loopback HTTP/API (`SMOKE_EXIT=0`), plus real-browser HTTPS login and dashboard on LAN (`PREVIEW_EXIT=0`, timed shutdown, Oct 12, 2026). |
 | USB device detection and opt-in read-only mount/unmount CLI | Implemented; hardware access not yet tested with HGFW |
 | Routed network topology validator (no writes) | Implemented |
 | Reproducible userspace overlay + checksums | Working |
@@ -93,7 +93,7 @@ To view the real HGFW dashboard from another LAN computer, stage the ARMv7 execu
 
 The preview binds only to an IPv4 address already assigned to the device; wildcard binds are refused. It creates a fresh TLS key/certificate and strong random password **in memory**, prints the temporary `https://` URL, password and certificate SHA-256 fingerprint to the terminal, and shuts down automatically after 240 seconds (or sooner on Ctrl-C). HTTPS clients will warn because the certificate is self-signed. Verify the certificate fingerprint independently against the terminal before proceeding; do not permanently trust the certificate. Never share the printed one-time password or commit credentials to Git.
 
-The dashboard is observation-only. The command does not run router services, DHCP, firewall configuration, flash utilities or USB mounts. Afterward it prints elapsed runtime and its peak resident memory reported by the kernel. This is a bounded LAN demonstration of the **actual** management UI, not a deployed router OS. Do not expose the preview port through a WAN or port-forwarding rule.
+**Physical-device browser test verified (October 12, 2026):** The operator successfully opened the HTTPS login and dashboard from a Windows browser with the preview running on the stock HG6245D. The router returned `HGFW_PREVIEW_STOPPED=true`, `HGFW_PREVIEW_ELAPSED_SECONDS=244`, `HGFW_PREVIEW_PEAK_RSS=12500 kB` (about 12.2 MiB), and `PREVIEW_EXIT=0`. This verifies actual browser access and timed process exit, not long-term stability or independence from the vendor OS. The dashboard is observation-only. The command does not run router services, DHCP, firewall configuration, flash utilities or USB mounts. Afterward it prints elapsed runtime and its peak resident memory reported by the kernel. This is a bounded LAN demonstration of the **actual** management UI, not a deployed router OS. Do not expose the preview port through a WAN or port-forwarding rule.
 
 ### Verified non-flashing hardware test
 
