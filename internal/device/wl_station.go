@@ -15,7 +15,11 @@ const maxWLDetailStations = 8
 const wlDetailBudget = 2500 * time.Millisecond
 
 var wlRSSIPattern = regexp.MustCompile(`(?i)^\s*(?:rssi\s*:\s*)?(-?[0-9]{1,3})\s*(?:dBm)?\s*$`)
-var wlPacketRatePattern = regexp.MustCompile(`(?i)^rate of last (tx|rx) pkt:\s*([0-9]+(?:\.[0-9]+)?)\s*(k|m|g)bps$`)
+
+// Some BCM96846 drivers append a second rate (e.g. "292500 kbps - 97500 kbps")
+// to the last-TX-packet field. Its meaning is not established, so use only
+// the primary rate while requiring the entire line to match the known format.
+var wlPacketRatePattern = regexp.MustCompile(`(?i)^rate of last (tx|rx) pkt:\s*([0-9]+(?:\.[0-9]+)?)\s*(k|m|g)bps(?:\s+-\s+[0-9]+(?:\.[0-9]+)?\s*(?:k|m|g)bps)?$`)
 
 func parseWLRSSI(raw string) *int {
 	m := wlRSSIPattern.FindStringSubmatch(strings.TrimSpace(raw))

@@ -31,6 +31,29 @@ func TestWLRSSIAndStationRates(t *testing.T) {
 	if rx != "24 MBit/s" || tx != "78 MBit/s" {
 		t.Fatalf("packet rates rx=%q tx=%q", rx, tx)
 	}
+	// Observed on the physical HG6245D: the TX field has two numeric rates.
+	// The secondary number is not identified, so it must not replace the first.
+	for _, tc := range []struct{ output, wantRX, wantTX string }{
+		{"  rate of last tx pkt: 292500 kbps - 97500 kbps\n  rate of last rx pkt: 390000 kbps", "390 MBit/s", "292.5 MBit/s"},
+		{"rate of last tx pkt: 195000 kbps - 45000 kbps\nrate of last rx pkt: 6000 kbps", "6 MBit/s", "195 MBit/s"},
+		{"rate of last tx pkt: 1.5 Gbps - 72.2 Mbps\nrate of last rx pkt: 24 Mbps", "24 MBit/s", "1500 MBit/s"},
+	} {
+		rx, tx = parseWLStationRates(tc.output)
+		if rx != tc.wantRX || tx != tc.wantTX {
+			t.Errorf("paired packet rate rx=%q tx=%q, want rx=%q tx=%q", rx, tx, tc.wantRX, tc.wantTX)
+		}
+	}
+	for _, bad := range []string{
+		"rate of last tx pkt: 292500 kbps - ERROR",
+		"rate of last tx pkt: 292500 kbps - 97500",
+		"rate of last tx pkt: 292500 kbps - 97500 kbps nonsense",
+		"rate of last tx pkt: 292500 kbps - -45000 kbps",
+	} {
+		_, tx = parseWLStationRates(bad)
+		if tx != "" {
+			t.Errorf("malformed supplemental rate %q accepted as %q", bad, tx)
+		}
+	}
 	rx, tx = parseWLStationRates("rate of last tx pkt: 1.5 Gbps\nrate of last rx pkt: 72.2 Mbps\nrate of last rx pkt: 999999 kbps\n")
 	if rx != "999.999 MBit/s" || tx != "1500 MBit/s" {
 		t.Fatalf("mixed units rx=%q tx=%q", rx, tx)
@@ -132,9 +155,9 @@ func TestWLSSIDRejectsAmbiguousOutput(t *testing.T) {
 			t.Errorf("ambiguous SSID %q accepted as %q", input, got)
 		}
 	}
-	// A genuinely configured one-character SSID is valid. The physical device's
-	// suspicious "I" needs raw output confirmation, not a hard-coded rejection.
-	if got := parseWLField("Current SSID: \"I\"", "ssid"); got != "I" {
+	// One-character SSIDs are valid; use a synthetic value in tests rather
+	// than the owner's actual network name.
+	if got := parseWLField("Current SSID: \"Q\"", "ssid"); got != "Q" {
 		t.Fatalf("single-character SSID rejected: %q", got)
 	}
 	if got := parseWLField("SSID: Cafe WiFi", "ssid"); got != "Cafe WiFi" {
