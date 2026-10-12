@@ -52,4 +52,54 @@ main{width:100%;max-width:1550px;margin:0 auto;padding:38px 40px 23px}.view{min-
 .network-evidence-panels .compact-item .state-pill{margin-top:4px}
 .network-evidence-panels code{font-family:var(--mono);font-size:10px;overflow-wrap:anywhere}
 @media(max-width:950px){.network-evidence-panels{grid-template-columns:1fr}}
+
+/* Router console modules: original menu taxonomy, independently rendered. */
+.sidebar{overflow-y:auto;scrollbar-width:thin;scrollbar-color:#34536a transparent}
+.main-nav{padding-bottom:10px}
+.catalog-intro{display:flex;gap:16px;align-items:center;background:#f0f6f6;border:1px solid #dae9e7;padding:16px 19px;border-radius:12px;margin-bottom:19px}
+.catalog-intro p{margin:0;color:#52717a;font-size:12px;line-height:1.65}
+.catalog-live-marker{flex:none;color:#277d76;font:750 10px var(--mono);letter-spacing:.05em;max-width:190px}
+.feature-workspace{display:grid;grid-template-columns:245px minmax(0,1fr);gap:18px;align-items:start;min-width:0}
+.catalog-index{display:flex;flex-direction:column;gap:4px;padding:7px;border:1px solid var(--border);border-radius:12px;background:#fff;min-width:0;max-height:calc(100vh - 154px);overflow-y:auto;scrollbar-width:thin}
+.catalog-entry{display:flex;align-items:center;text-align:left;padding:12px 13px;min-width:0;border:0;border-radius:8px;background:transparent;color:#66758a;font-size:12px;font-weight:640;line-height:1.35;min-height:42px}
+.catalog-entry:hover{background:#edf4f5;color:#1e5c62}
+.catalog-entry.selected{background:#e8f5f1;color:#1e7665;box-shadow:inset 3px 0 0 #2daa91}
+.catalog-detail{background:#fff;border-radius:15px;border:1px solid var(--border);padding:25px 27px;min-height:350px;min-width:0}
+.catalog-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.catalog-head h2{font-size:22px;letter-spacing:-.04em;margin:0;line-height:1.28}
+.catalog-lede{margin:12px 0 21px;color:var(--sub);font-size:13px;max-width:760px}
+.fact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:0 0 24px}
+.fact-entry{background:#fbfcfe;padding:15px 16px;min-width:0}
+.fact-entry dt{font:700 10px var(--mono);letter-spacing:.035em;text-transform:uppercase;color:#8a99ac}
+.fact-entry dd{font-size:13px;font-weight:700;margin:8px 0 0;color:#29475b;overflow-wrap:anywhere;white-space:pre-wrap}
+.unavailable-feature{background:#fff8ef;border-left:3px solid #e1ae60;color:#815e32;padding:15px 18px;font-size:12px;border-radius:0 8px 8px 0;line-height:1.65;margin:12px 0 22px}
+.catalog-footnote{font-size:11px;color:#8394a4;border-top:1px solid var(--border);padding-top:18px;margin-top:27px;line-height:1.65}
+.catalog-help{color:var(--sub);font-size:12px}
+.port-map-panel{margin-top:19px;margin-bottom:19px}
+.port-map-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
+.lan-port{border:1px solid #dce9e7;background:#f9fcfc;border-radius:10px;padding:14px;min-width:0}
+.lan-port-top{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center}
+.lan-port-top strong{font:750 13px var(--mono);color:#2a5260}
+.lan-port-device{font:650 11px var(--mono);color:#576a83;margin:12px 0 4px}
+.lan-port-caption{font-size:10px;color:#8c9aab;margin:0}
+.network-settings-panel{margin-bottom:19px}
+.network-settings-panel .feature-workspace{grid-template-columns:215px minmax(0,1fr)}
+.network-settings-panel .catalog-index{max-height:440px}
+.network-settings-panel .catalog-detail{box-shadow:none;min-height:280px}
+@media(max-width:1200px){.port-map-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1000px){.feature-workspace,.network-settings-panel .feature-workspace{grid-template-columns:205px minmax(0,1fr)}.catalog-detail{padding:21px}}
+@media(max-width:700px){
+ .sidebar{overflow:visible}
+ .catalog-intro{display:block}
+ .catalog-live-marker{display:block;max-width:none;margin-bottom:8px}
+ .feature-workspace,.network-settings-panel .feature-workspace{display:flex;flex-direction:column;gap:11px}
+ .catalog-index{flex-direction:row;overflow-x:auto;overflow-y:hidden;width:100%;max-height:none;min-height:55px;padding:5px}
+ .catalog-entry{white-space:nowrap;flex:none;min-height:43px}
+ .catalog-detail{width:100%;min-height:290px;padding:20px 18px}
+ .catalog-head h2{font-size:20px}
+ .fact-grid{grid-template-columns:1fr}
+ .port-map-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .lan-port{padding:11px}
+}
+@media print{.catalog-index{display:none}.feature-workspace{display:block}.catalog-detail{box-shadow:none}}
 @media print{.sidebar,.topbar,.mode-pill,.filters,.metric-card a{display:none!important}.shell{display:block}main{padding:0}.view[hidden]{display:none}.overview-top{grid-template-columns:1fr 1fr}.network-hero{color:#172339;background:#fff;border:1px solid #bbb}.topology-node small,.hero-description,.hero-address-label{color:#4d5d6d}}

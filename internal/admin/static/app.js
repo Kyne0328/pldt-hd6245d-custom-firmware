@@ -2,7 +2,7 @@
 
 // HGFW Stage 2 console: observation only. Never interpolate API values into HTML.
 const $ = (id) => document.getElementById(id);
-const navNames = {overview: "Overview", network: "Network", storage: "USB storage", services: "Services"};
+const navNames = {overview: "Overview", status: "Status", network: "Network", security: "Security", applications: "Applications", management: "Management", storage: "USB storage", services: "Services"};
 let latest = null;
 let networkFilter = "all";
 let inFlight = false;
@@ -39,7 +39,7 @@ function el(tag, cls, text) {
   return node;
 }
 function setPage() {
-  const name = location.hash.slice(1);
+  const name = location.hash.slice(1).split("/")[0];
   const chosen = Object.prototype.hasOwnProperty.call(navNames, name) ? name : "overview";
   document.querySelectorAll(".view").forEach(view => { view.hidden = view.dataset.view !== chosen; });
   document.querySelectorAll("[data-nav]").forEach(link => {
@@ -51,6 +51,7 @@ function setPage() {
   valueText("crumb-current", navNames[chosen]);
   document.title = "HGFW Console · " + navNames[chosen];
   if (latest && chosen === "network") renderInterfaceTable(latest.device.interfaces);
+  routeCatalog();
   window.scrollTo({top:0,behavior:"instant"});
 }
 function statusLine(text, kind) {
@@ -206,6 +207,148 @@ function renderServices(services) {
   if(!rows.length) rows.push(emptyState("No services configured","The service supervisor is idle. No extra processes are started in the default development build.","≡"));
   $("service-devices").replaceChildren(...rows);
 }
+// Original PLDT variant menu used only as an offline reference. This is
+// independent HGFW UI code; no vendor ASP/CGI endpoints are invoked.
+const featureCatalog = {
+ status:[
+  ["device","Device information","Live observation","Kernel, model, uptime and memory",d=>[["Model",d.model],["Kernel",d.kernel],["Uptime",readableUptime(d.uptimeSeconds)],["Available memory",formatBytes((d.memAvailableKB||0)*1024)]]],
+  ["wifi24","2.4 GHz wireless status","Kernel interface only","Driver existence and bridge membership, not SSID/channel/AP capability",d=>wirelessEvidence(d,"wl0")],
+  ["wifi5","5 GHz wireless status","Kernel interface only","Driver existence and bridge membership, not SSID/channel/AP capability",d=>wirelessEvidence(d,"wl1")],
+  ["wifi-clients","Wi-Fi clients list","Backend pending","The stock PLDT page uses a proprietary getWifiMac_IPListParam handler; HGFW does not yet have verified wireless association data",()=>[["Association list","Not available"],["ARP neighbors","Shown separately; do not assume they are Wi-Fi clients"]]],
+  ["lan-ports","LAN port status","Live observation","LAN 1–4 carrier and bridge observations with operator-provided mapping",d=>[["Port map",hasArray(d.lanPorts).length+" currently matched"],["Bridge",bridgeText(d)]]],
+  ["dhcp-clients","DHCP client list","Backend pending","The stock DHCP lease inventory is not exposed through a verified independent HGFW source; ARP neighbors are not leases",()=>[["DHCP lease records","Unavailable"],["Observed ARP entries","See the LAN neighbor table"]]],
+  ["neighbors","LAN neighbor table","Live observation","Completed IPv4 ARP entries; not a DHCP lease or Wi-Fi association list",d=>[["IPv4 ARP entries",hasArray(d.arpNeighbors).length],...hasArray(d.arpNeighbors).slice(0,16).map(n=>[n.address,n.mac+" · "+n.interface])]],
+  ["wan-status","WAN status","Kernel routes only","Default route observation is not proof of an upstream connection",d=>[["Default route",d.network?.defaultInterface||"None reported"],["Gateway",d.network?.defaultGateway||"None reported"]]],
+  ["optical","Optical status","Interface detected only","GPON/OMCI interface metadata; optical RX/TX power not exposed by this backend",d=>[["Optical interface",hasArray(d.interfaces).filter(i=>/^(sfu|gpon|veip)/.test(i.name)).map(i=>i.name).join(", ")||"Not found"],["Optical power","Not measured"]]],
+  ["voip","VoIP status","Interface detected only","VoIP interface presence is not voice registration or call capability",d=>[["VoIP-related interfaces",hasArray(d.interfaces).filter(i=>/^(voip|tel[0-9])/.test(i.name)).map(i=>i.name).join(", ")||"Not found"],["SIP registration","Not inspected"]]],
+ ],
+ network:[
+  ["wifi-config-24","2.4 GHz wireless settings","Not enabled","AP/STA configuration and SSID/channel controls require verified proprietary driver integration",d=>wirelessEvidence(d,"wl0")],
+  ["wifi-config-5","5 GHz wireless settings","Not enabled","5 GHz radio and repeater/client modes require driver verification",d=>wirelessEvidence(d,"wl1")],
+  ["wifi-security","Wi-Fi security","Not enabled","WPA2/WPA3 credential handling, guest SSIDs and authentication changes are not available",()=>[]],
+  ["wifi-power-24","2.4 GHz transmit power","Not enabled","Radio transmit power controls need verified Broadcom driver support",()=>[]],
+  ["wifi-power-5","5 GHz transmit power","Not enabled","5 GHz radio power control remains unsupported by HGFW",()=>[]],
+  ["wps","Wi-Fi Protected Setup","Not enabled","WPS status and configuration cannot be verified and are not exposed for activation",()=>[]],
+  ["lan-config","LAN & DHCP","Not enabled","The independent network-plan validator works offline; DHCP configuration is not applied",d=>[["Bridge",bridgeText(d)],["IPv4 forwarding",triState(d.platform?.ipv4Forwarding)]]],
+  ["wan-config","Broadband / WAN","Not enabled","WAN interface binding and connectivity must be tested with verified recovery",d=>[["Kernel default route",d.network?.defaultInterface||"None reported"]]],
+  ["iptv","IPTV & VLANs","Not enabled","Physical switch VLAN assignment is unverified on this hardware variant",()=>[]],
+  ["ipv6","IPv6","Kernel flag only","IPv6 routing and firewall configuration is not enabled",d=>[["IPv6 forwarding",triState(d.platform?.ipv6Forwarding)]]],
+  ["remote-isp","Remote management (TR-069)","Not enabled","Vendor provisioning and ISP access controls are intentionally excluded",()=>[]],
+  ["ont-auth","Optical / OLT authentication","Not enabled","GPON, PON identity and OMCI settings are outside this independently validated configuration scope",()=>[]],
+ ],
+ security:[
+  ["firewall","Firewall status","Kernel metadata only","Read kernel table names and forwarding flags, not full effective firewall rules",d=>[["IPv4 forwarding",triState(d.platform?.ipv4Forwarding)],["IPv4 tables",hasArray(d.platform?.ipv4FirewallTables).join(", ")||"None exposed"],["IPv6 tables",hasArray(d.platform?.ipv6FirewallTables).join(", ")||"None exposed"]]],
+  ["ip-filter","IP address filtering","Not enabled","Rule inspection/editing is not connected to iptables or the vendor firewall",()=>[]],
+  ["url-filter","URL filtering","Not enabled","DNS- or HTTP-layer filtering services have not been deployed",()=>[]],
+  ["mac-filter","MAC filtering","Not enabled","Bridge/switch access-control rules must not be changed without rollback",()=>[]],
+  ["dhcp-filter","DHCP filtering","Not enabled","DHCP snooping and filtering require verified switch support",()=>[]],
+  ["ipv6-mac-filter","IPv6 MAC filtering","Not enabled","No independently implemented IPv6 bridge filtering is available",()=>[]],
+  ["acl","Access control lists","Not enabled","Access-control rule editing remains blocked without verified rollback",()=>[]],
+  ["port-scan","Port scan protection","Not enabled","The stock intrusion-detection switches are not connected to HGFW",()=>[]],
+  ["parental","Parental controls","Not enabled","Client policies and enforcement services are not implemented",()=>[]],
+  ["wan-acl","WAN access control","Not enabled","Remote-management exposure remains blocked in HGFW preview",()=>[]],
+  ["ddos","DoS protection","Not enabled","Stock DoS settings have not been reconstructed into independent rules",()=>[]],
+  ["qos","Quality of service","Not enabled","Traffic queues and rate limits cannot be applied safely yet",()=>[]],
+  ["remote","Remote access","Read-only preview","HGFW currently serves a temporary authenticated HTTPS preview with a strict timeout",()=>[["Network configuration","Not modified"],["Remote WAN management","Not enabled"]]],
+ ],
+ applications:[
+  ["vpn","VPN overview","Prerequisites observed","Separate VPN server/client support from stock GRE/IPsec pass-through",d=>vpnFacts(d)],
+  ["vpn-gre","VPN pass-through (GRE)","Stock feature only","Original PLDT uses a /goform/setVPNEnable pass-through setting. HGFW does not read or toggle its current value",()=>[["GRE pass-through","Current stock setting not inspected"],["VPN tunnel server","Not implied"]]],
+  ["vpn-ipsec","IPsec pass-through","Stock feature only","Original stock page uses /goform/setIpsecEnable, not an independent IPsec VPN server",()=>[["IPsec pass-through","Current stock setting not inspected"],["IPsec server","Not implemented"]]],
+  ["wireguard","WireGuard VPN","Prerequisites observed","Kernel module or userspace implementation would need validated TUN support and secure key storage",d=>vpnFacts(d)],
+  ["openvpn","OpenVPN","Prerequisites observed","An independent OpenVPN client/server needs TUN, TLS, isolation, routing and credentials",d=>vpnFacts(d)],
+  ["ddns","Dynamic DNS","Not enabled","Provider authentication, updater daemon and configuration management are not deployed",()=>[]],
+  ["port-forward","Port forwarding","Not enabled","No NAT or firewall changes are permitted from the preview",()=>[]],
+  ["port-trigger","Port triggering","Not enabled","Dynamic NAT rule management is not implemented",()=>[]],
+  ["nat","NAT","Kernel metadata only","Forwarding flags are observable, but active NAT rule correctness is not established",d=>[["IPv4 forwarding",triState(d.platform?.ipv4Forwarding)],["NAT table",hasArray(d.platform?.ipv4FirewallTables).includes("nat")?"Table name exposed":"Not exposed"]]],
+  ["upnp","UPnP","Not enabled","No UPnP Internet Gateway Device service is running under HGFW",()=>[]],
+  ["dmz","DMZ","Not enabled","No exposed-host forwarding controls are available",()=>[]],
+  ["samba","Samba file sharing","Storage observation only","USB disks can be enumerated; HGFW has not deployed an SMB server",d=>[["USB disks",hasArray(d.disks).filter(d=>!d.partition).length],["SMB server","Not deployed"]]],
+  ["usb-printer","USB print server","Not enabled","USB printer identification and a print spooler are not implemented",()=>[]],
+  ["diagnostics","Network diagnostics","Read-only observation","Interface counters, routes and the supervised loopback health test are available; no active WAN probing is performed",d=>[["Kernel routes",hasArray(d.network?.ipv4Routes).length],["Loopback service test","hgfw network-selftest (CLI)"]]],
+ ],
+ management:[
+  ["account","Administrator session","Active HGFW authentication","Password-hashed login, secure cookies, CSRF checks and explicit logout already work",()=>[["Current session","Authenticated"],["Device configuration writes","Disabled"]]],
+  ["password","Password management","Not enabled","The temporary preview uses a one-time in-RAM password; authenticated sessions can be signed out, but credential editing is not enabled",()=>[]],
+  ["logs","System logs","Not enabled","The development console does not scrape potentially sensitive stock logs",()=>[]],
+  ["clock","Device clock / NTP","Not enabled","Time synchronization changes would affect TLS, logging and running processes",()=>[]],
+  ["backup","Configuration backup","Not enabled","Stock configuration can contain credentials. No download or restore is exposed",()=>[]],
+  ["restore","Factory restore","Blocked for safety","Factory reset would erase settings and may eliminate access to the device",()=>[]],
+  ["firmware","Firmware update","Blocked for safety","No flash writes before independently verified software-only recovery",()=>[]],
+  ["reboot","Reboot","Blocked for safety","Reboot operations are intentionally unavailable in this development build",()=>[]],
+  ["ftp","FTP management","Not enabled","Plaintext FTP management is not offered; future secure file services require isolation",()=>[]],
+  ["services","HGFW service supervisor","Read-only observation","Services explicitly launched by HGFW are shown in the Services page",()=>[["Supervisor","Running independently in HGFW process"],["Go to","Services navigation page"]]],
+ ],
+};
+function triState(value) {return value===true?"Enabled (kernel flag)":value===false?"Disabled (kernel flag)":"Not readable";}
+function bridgeText(d) {const br=hasArray(d.interfaces).find(i=>i.name==="br0");return br? br.name+" · "+(ip4(br)||"No IPv4"):"Not detected";}
+function wirelessEvidence(d,name) {
+ const iface=hasArray(d.interfaces).find(i=>i.name===name);
+ const evidence=hasArray(d.network?.interfaces).find(i=>i.name===name);
+ return [["Kernel interface",iface?"Detected":"Not detected"],["Driver operstate",evidence?.operState||"Unknown"],["Carrier",evidence?.carrier===true?"Reported":evidence?.carrier===false?"Not reported":"Unknown"],["Bridge master",evidence?.master||"Not observed"],["Associated clients","Not verified (vendor handler required)"]];
+}
+function vpnFacts(d) {
+ const p=d.platform||{};
+ return [["TUN character device",p.tunDevicePresent?"Present":"Not found"],["TUN kernel module",p.tunModulePresent?"Present":"Not observed"],["WireGuard kernel module",p.wireGuardModulePresent?"Present":"Not observed"],["VPN tools in PATH",hasArray(p.vpnExecutables).join(", ")||"None detected"],["VPN connection","Not configured or established by HGFW"]];
+}
+function renderPorts(d){
+ const mount=$("lan-ports"); if(!mount)return;
+ const items=hasArray(d.lanPorts);
+ const cells=items.map(p=>{
+  const card=el("article","lan-port");
+  const header=el("div","lan-port-top");
+  header.append(el("strong","",p.label),badge(p.carrier===true?"Link detected":p.carrier===false?"No carrier":"Unknown",p.carrier===true?"up":""));
+  card.append(header,el("p","lan-port-device",p.interface+" / "+p.bridgeInterface),
+   el("p","lan-port-caption",p.master?"Bridge member: "+p.master:"Bridge assignment unknown"));
+  card.title=p.source||"Mapping requires board verification";
+  return card;
+ });
+ mount.replaceChildren(...(cells.length?cells:[emptyState("No board-specific mapping","LAN jack labels are not inferred for unrecognized devices.","⇄")]));
+}
+function routeCatalog(){
+ const full=location.hash.slice(1).split("/");
+ const group=full[0], feature=full[1];
+ if(!Object.prototype.hasOwnProperty.call(featureCatalog,group))return;
+ renderCatalog(group,feature);
+}
+function renderCatalog(group,requested){
+ const host=$("catalog-"+group);
+ if(!host)return;
+ const items=featureCatalog[group]||[];
+ const selected=items.find(x=>x[0]===requested)||items[0];
+ const index=el("div","catalog-index");
+ index.setAttribute("role","group");index.setAttribute("aria-label","Choose "+group+" feature");
+ for(const f of items){
+  const button=el("button","catalog-entry"+(f===selected?" selected":""),f[1]);
+  button.type="button";
+  button.setAttribute("aria-pressed",String(f===selected));
+  button.addEventListener("click",()=>{location.hash=group+"/"+f[0];});
+  index.append(button);
+ }
+ const detail=el("article","catalog-detail");
+ const heading=el("div","catalog-head");
+ const title=el("h2","",selected[1]);
+ const status=badge(selected[2],selected[2].startsWith("Live")?"up":"");
+ heading.append(title,status);
+ detail.append(heading,el("p","catalog-lede",selected[3]));
+ const facts=latest?selected[4](latest.device):[];
+ if(facts.length) {
+  const dl=el("dl","fact-grid");
+  for(const [key,value] of facts){
+   const item=el("div","fact-entry");
+   item.append(el("dt","",key),el("dd","",value==null?"Unknown":value));
+   dl.append(item);
+  }
+  detail.append(dl);
+ }else if(!latest)detail.append(el("p","catalog-help","Waiting for authenticated device status…"));
+ else detail.append(el("div","unavailable-feature","This setting is not connected to an independent HGFW implementation. No apply, save or stock-firmware write operation is available."));
+ detail.append(el("p","catalog-footnote","Information source: "+(selected[2].startsWith("Live")||selected[2].includes("Kernel")||selected[2].includes("Prerequisite")?"Linux kernel / HGFW diagnostics.":"PLDT menu capability reference only.")+" The dashboard does not invoke proprietary /goform settings."));
+ host.replaceChildren(index,detail);
+}
+function renderAllCatalogs(){
+ for(const name of Object.keys(featureCatalog))renderCatalog(name,location.hash.slice(1).split("/")[0]===name?location.hash.split("/")[1]:undefined);
+}
+
 async function refresh() {
   if(inFlight)return;
   inFlight=true;
@@ -221,8 +364,10 @@ async function refresh() {
     const services=hasArray(data.services);
     renderOverview(data.device,services);
     renderNetwork(data.device);
+    renderPorts(data.device);
     renderStorage(data.device.disks);
     renderServices(services);
+    renderAllCatalogs();
     lastUpdate=new Date();
     statusLine("Live","ok");
     valueText("updated","Updated "+lastUpdate.toLocaleTimeString());
@@ -254,6 +399,7 @@ document.querySelectorAll("[data-filter]").forEach(button=>button.addEventListen
   if(latest)renderInterfaceTable(latest.device.interfaces);
 }));
 document.addEventListener("visibilitychange",()=>{if(!document.hidden && lastUpdate && Date.now()-lastUpdate.getTime()>15000)refresh();});
+renderAllCatalogs();
 setPage();
 refresh();
 setInterval(()=>{if(!document.hidden)refresh();},15000);

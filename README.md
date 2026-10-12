@@ -68,7 +68,7 @@ Hardware capabilities verified on one board are not necessarily identical across
 | Wireless client / repeater modes | Under investigation |
 | SMB/NAS file sharing | Planned |
 | USB printer server | Planned; requires printer compatibility testing |
-| Independent admin UI | Redesigned read-only console with Overview, Network, USB Storage, and Services views; desktop/mobile host-browser tested. Revised visual design awaiting physical-device retest. |
+| Independent admin UI | Eight-view router console: Overview, Status, Network, Security, Applications/VPN, Management, USB Storage, and Services; live kernel diagnostics plus explicit unimplemented states. Host browser tested; latest hardware retest pending. |
 | Bootable custom image / safe installer | Blocked by boot-chain and recovery validation |
 
 ### Loopback dashboard smoke test
@@ -145,6 +145,15 @@ The outputs are generated under `dist/`:
 
 The management interface is now a proper responsive, four-view router console rather than one long inventory page. **Overview** shows a local management/network diagram, measured RAM utilization, uptime, load, wireless radio presence, USB disk counts and key device summaries. **Network** has searchable, filterable Broadcom/Linux interfaces with state, IP, MAC and MTU; **USB storage** distinguishes disks, partitions and actual mounts; **Services** shows the supervisor's live process states or a truthful empty state. Views work on mobile and desktop, refresh live every 15 seconds, and remain accessible without a third-party font, JS library or internet connection. All content is rendered from the authenticated read-only status API. Interface presence is not presented as internet connectivity or proof of control over drivers. A visual browser test of the redesigned version on the physical router is still pending.
 
+### Full router-console feature map (Stage 2 read-only)
+
+HGFW now uses the **five original PLDT administration areas** as an independently implemented navigation framework: **Status**, **Network**, **Security**, **Applications**, and **Management**. Existing **Overview**, **USB Storage**, and **Services** remain available. This structure was derived from offline analysis of the private stock menu XML and matching ASP entry points, **not** from copying vendor JavaScript or compiled binaries into HGFW. The original Wi-Fi client table was traced to `wireless/wifimaclist.asp` and a compiled `getWifiMac_IPListParam` handler. Stock GRE and IPsec pass-through pages submit to private `/goform/setVPNEnable` and `/goform/setIpsecEnable`; neither page proves VPN server availability.
+
+- **Live, authenticated observations:** device model, kernel, memory, uptime, Linux/bridge/WAN route evidence, available carrier readings, an operator-reported LAN 1-4 map on BCM96846 only, completed ARP neighbor entries, USB disks, HGFW process supervisor, kernel IPv4/IPv6 forwarding flags, available firewall table names, VPN executable inventory, and TUN/WireGuard kernel/device presence.
+- **Features not yet independently enabled:** Wi-Fi association/client list (ARP is not a Wi-Fi list), SSID/WPA/5 GHz radio configuration, WAN/DHCP/IPTV/IPv6 configuration, VPN pass-through toggles, WireGuard/OpenVPN tunnels, firewall/parental filtering, NAT/port forwarding/UPnP/DDNS, SMB/printing, account/password changes, logging/clock, backups/restores, firmware update and reboot. They have navigable explanations and prerequisites, **not working Apply buttons**.
+- **Safety boundary:** The dashboard neither submits stock CGI calls nor executes router configuration/flash commands. VPN diagnostics are capability signals, **not an active VPN connection**. Original stock source and private backups remain outside the public repository.
+
+This milestone implements the **router-administration information architecture with safe diagnostics**, not functional parity with stock firmware. Each configuration service still needs independent driver/backend integration, tests and a proven software-only rollback/recovery mechanism. The latest version's physical-device browser test is pending; earlier HGFW builds have been verified on hardware.
 ### Network Engine v1 — inspection, validation, supervised loopback
 
 The Stage 2 backend now supplies a `device.network` object in authenticated `/api/status` and `hgfw status`. Its kernel evidence comes from `/sys/class/net` and `/proc/net/route`, including interface role labels with explicit **confidence**, bridge master (when exposed), operative state, carrier (when available), link speed (when available), RX/TX counters and IPv4 routes. The Network page displays these observed values and highlights the active default IPv4 route where one exists. The engine **does not map physical LAN jack numbers** and does **not verify** Wi-Fi AP/STA mode or actual internet access; vendor-named `wan0` and GPON interfaces are not assumed functional WAN ports.
