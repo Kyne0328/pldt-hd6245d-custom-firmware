@@ -21,6 +21,8 @@ func TestDiscoverServiceEvidenceOnlyFixedMetadata(t *testing.T) {
 	}
 	write("etc/resolv.conf", "nameserver 10.0.0.1\nsearch private.example\n")
 	write("tmp/dnsmasq.leases", "secret-private-lease-body\n")
+	write("var/udhcpd/udhcpd.leases", "private-vendor-lease-data\n")
+	write("fhconf/udhcpd.conf", "never-share-configuration\n")
 	write("proc/100/comm", "dnsmasq\n")
 	write("proc/101/comm", "secret-daemon\n")
 	write("proc/net/udp", "  sl  local_address rem_address   st\n   0: 00000000:0043 00000000:0000 07\n   1: 00000000:0035 00000000:0000 07\n")
@@ -37,6 +39,20 @@ func TestDiscoverServiceEvidenceOnlyFixedMetadata(t *testing.T) {
 	}
 	if !foundLease {
 		t.Fatal("missing lease path metadata")
+	}
+	var vendorLease, vendorConfig bool
+	for _, p := range ev.LeaseCandidates {
+		if p.Label == "/var/udhcpd/udhcpd.leases" && p.Present {
+			vendorLease = true
+		}
+	}
+	for _, p := range ev.VendorDHCPConfigCandidates {
+		if p.Label == "/fhconf/udhcpd.conf" && p.Present {
+			vendorConfig = true
+		}
+	}
+	if !vendorLease || !vendorConfig {
+		t.Fatal("firmware-confirmed candidates absent from detection")
 	}
 	if !slices.Equal(ev.KnownProcessNames, []string{"dnsmasq"}) {
 		t.Fatalf("process allowlist not enforced: %+v", ev.KnownProcessNames)

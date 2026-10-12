@@ -32,6 +32,7 @@ echo "[5/6] Host integration (DNS + supervised loopback + authentication)"
 echo "[6/6] ARM emulation if QEMU is configured"
 if [ -n "${QEMU_ARM:-}" ] && [ -x "${QEMU_ARM}" ]; then
   "${QEMU_ARM}" build/hgfw-armv7-next dns-selftest
+  "${QEMU_ARM}" build/hgfw-armv7-next dhcp-selftest
   "${QEMU_ARM}" build/hgfw-armv7-next smoke
 else
   echo "QEMU_ARM_UNSET: QEMU checks skipped, not marked passed"

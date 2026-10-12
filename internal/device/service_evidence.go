@@ -18,13 +18,14 @@ type SourceProbe struct {
 }
 
 type ServiceDiscovery struct {
-	ResolverCandidates []SourceProbe `json:"resolverCandidates"`
-	LeaseCandidates    []SourceProbe `json:"leaseCandidates"`
-	KnownProcessNames  []string      `json:"knownProcessNames"`
-	DNSUDP53Observed   bool          `json:"dnsUDP53Observed"`
-	DNSTCP53Listening  bool          `json:"dnsTCP53Listening"`
-	DHCPUDP67Observed  bool          `json:"dhcpUDP67Observed"`
-	Notes              []string      `json:"notes"`
+	ResolverCandidates         []SourceProbe `json:"resolverCandidates"`
+	LeaseCandidates            []SourceProbe `json:"leaseCandidates"`
+	VendorDHCPConfigCandidates []SourceProbe `json:"vendorDHCPConfigCandidates"`
+	KnownProcessNames          []string      `json:"knownProcessNames"`
+	DNSUDP53Observed           bool          `json:"dnsUDP53Observed"`
+	DNSTCP53Listening          bool          `json:"dnsTCP53Listening"`
+	DHCPUDP67Observed          bool          `json:"dhcpUDP67Observed"`
+	Notes                      []string      `json:"notes"`
 }
 
 var resolverCandidatePaths = []string{
@@ -33,10 +34,16 @@ var resolverCandidatePaths = []string{
 var leaseCandidatePaths = []string{
 	"/var/lib/misc/dnsmasq.leases", "/var/run/dnsmasq.leases",
 	"/tmp/dnsmasq.leases", "/tmp/dhcp.leases", "/var/udhcpd.leases", "/var/run/udhcpd.leases",
+	// Confirmed as a compiled-in path in the owner's original RP2613 udhcpd ELF.
+	"/var/udhcpd/udhcpd.leases",
+}
+var vendorDHCPConfigPaths = []string{
+	"/fhconf/udhcpd.conf", "/fhconf/udhcpdbinding.conf",
 }
 var knownServiceComm = map[string]bool{
 	"dnsmasq": true, "udhcpd": true, "dhcpd": true,
 	"odhcpd": true, "dnsd": true, "dnrd": true, "named": true, "dnsproxy": true,
+	"dnsrelay": true, "dhcpl2": true,
 }
 
 func probeStaticPaths(root string, paths []string) []SourceProbe {
@@ -139,10 +146,12 @@ func observedPort(procFile string, port uint16, tcp bool) bool {
 func DiscoverServiceEvidence(root string) ServiceDiscovery {
 	proc := filepath.Join(root, "proc")
 	result := ServiceDiscovery{
-		ResolverCandidates: probeStaticPaths(root, resolverCandidatePaths),
-		LeaseCandidates:    probeStaticPaths(root, leaseCandidatePaths),
-		KnownProcessNames:  processNameEvidence(proc),
+		ResolverCandidates:         probeStaticPaths(root, resolverCandidatePaths),
+		LeaseCandidates:            probeStaticPaths(root, leaseCandidatePaths),
+		VendorDHCPConfigCandidates: probeStaticPaths(root, vendorDHCPConfigPaths),
+		KnownProcessNames:          processNameEvidence(proc),
 		Notes: []string{
+			"Vendor DHCP file paths originate from offline RP2613 udhcpd ELF strings, not observed live service use; no file content is read.",
 			"Candidate path presence does not establish file format or an active DHCP/DNS service.",
 			"Process names and UDP/TCP socket ports do not establish ownership or reachability.",
 			"No private file contents, client identities, CLI arguments or configurations are inspected.",

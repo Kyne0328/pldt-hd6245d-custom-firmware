@@ -6,6 +6,7 @@ package fieldcheck
 import (
 	"errors"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/device"
+	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/dhcpcore"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/dnscore"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/netprobe"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/smoke"
@@ -23,6 +24,10 @@ type Inventory struct {
 	LeaseRows                   int      `json:"standardLeaseRows"`
 	ResolverCandidatePaths      int      `json:"resolverCandidatePathsPresent"`
 	LeaseCandidatePaths         int      `json:"leaseCandidatePathsPresent"`
+	VendorDHCPConfigPaths       int      `json:"vendorDHCPConfigPathsPresent"`
+	ResolverSymlinkCandidates   int      `json:"resolverSymlinkCandidates"`
+	ResolverRegularFiles        int      `json:"resolverRegularFiles"`
+	VendorUDHCPDLeasePresent    bool     `json:"vendorUDHCPDLeasePresent"`
 	KnownServiceProcessNames    []string `json:"knownServiceProcessNames"`
 	DNSUDP53Observed            bool     `json:"dnsUDP53Observed"`
 	DNSTCP53Listening           bool     `json:"dnsTCP53Listening"`
@@ -41,6 +46,7 @@ type Result struct {
 	ReadOnly                      bool      `json:"readOnly"`
 	Inventory                     Inventory `json:"inventory"`
 	DNSLoopbackPassed             bool      `json:"dnsLoopbackPassed"`
+	DHCPPacketEnginePassed        bool      `json:"dhcpPacketEnginePassed"`
 	SupervisedLoopbackPassed      bool      `json:"supervisedLoopbackPassed"`
 	AuthenticatedAdminSmokePassed bool      `json:"authenticatedAdminSmokePassed"`
 	FailedChecks                  []string  `json:"failedChecks"`
@@ -61,11 +67,25 @@ func Summarize(s device.Status) Inventory {
 	for _, x := range s.ServiceSources.ResolverCandidates {
 		if x.Present {
 			v.ResolverCandidatePaths++
+			if x.Kind == "symlink (target not inspected)" {
+				v.ResolverSymlinkCandidates++
+			}
+			if x.Kind == "regular file" {
+				v.ResolverRegularFiles++
+			}
 		}
 	}
 	for _, x := range s.ServiceSources.LeaseCandidates {
 		if x.Present {
 			v.LeaseCandidatePaths++
+			if x.Label == "/var/udhcpd/udhcpd.leases" {
+				v.VendorUDHCPDLeasePresent = true
+			}
+		}
+	}
+	for _, x := range s.ServiceSources.VendorDHCPConfigCandidates {
+		if x.Present {
+			v.VendorDHCPConfigPaths++
 		}
 	}
 	for _, r := range s.Wireless.Radios {
@@ -96,10 +116,16 @@ func Run() (Result, error) {
 		"Aggregate counts only: no station addresses, SSIDs, IPs or passwords are printed.",
 		"ARP matches are kernel neighbor evidence; optional lease names require agreement across associations, ARP and lease rows and do not prove identity.",
 		"Fixed-path and service-port presence is diagnostic only, not proof of DHCP/DNS ownership or functionality.",
+		"DHCP packet processing is in memory only, without UDP/67, broadcasting or serving client requests.",
 		"DNS server test listens only on temporary 127.0.0.1 UDP, never the LAN or port 53.",
 		"Loopback HTTP checks stop their own temporary services; no kernel, flash or stock configuration is modified.",
 	}}
 	out.Inventory = Summarize(device.Snapshot())
+	dhcp, derr := dhcpcore.SelfTest()
+	out.DHCPPacketEnginePassed = derr == nil && dhcp.Success
+	if !out.DHCPPacketEnginePassed {
+		out.FailedChecks = append(out.FailedChecks, "dhcp-packet-engine")
+	}
 	d, err := dnscore.SelfTest()
 	out.DNSLoopbackPassed = err == nil && d.Success
 	if !out.DNSLoopbackPassed {
