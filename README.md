@@ -9,6 +9,12 @@ The aim is to use as much of the device's existing hardware as possible: dual-ba
 > [!IMPORTANT]
 > **Developer preview — not ready to install.** The project now builds a native ARMv7 management daemon, an authenticated browser dashboard and a reproducible userspace overlay. However, it is **not** a complete router operating system, bootable kernel, or flashable image. No generated archive should be flashed to a device.
 
+### Offline full-firmware engineering checkpoint (October 12, 2026)
+
+The project now includes a **read-only RP2613/RP2725 boot-file inspector**, reproducible private ARMv7 `newc` initramfs builder, native-Linux UBIFS symlink/mode recovery for both stock root and application volumes, separate private stock-plus-HGFW rootfs and application staging, deterministic private TAR packers, and a fail-closed boot-readiness assessment. All three component archives have locally verified manifests and hashes; the Go/Python checks, ARM QEMU and existing authenticated administration tests pass. See [RP2613 boot-chain engineering and installation blockers](docs/RP2613_BOOT_CHAIN.md).
+
+These are meaningful construction stages, **not a validated standalone router firmware**: the correct Broadcom kernel/CFE update envelope, application UBI volume, factory configuration preservation, recovery path and actual RP2613 boot behavior remain unresolved. All original vendor binaries and staged payloads stay private. Nothing was flashed or installed by this development pass.
+
 ## The goal
 
 ```mermaid
