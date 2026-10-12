@@ -1,0 +1,11 @@
+#!/bin/sh
+# HGFW: read-only USB storage inventory. Never formats, mounts or writes.
+set -eu
+echo 'HGFW USB storage inventory'
+printf 'USB devices:\n'
+if [ -d /sys/bus/usb/devices ]; then ls /sys/bus/usb/devices; else echo unavailable; fi
+echo 'SCSI block devices:'
+if [ -r /proc/partitions ]; then awk 'NR>2 && $4 ~ /^sd[a-z][0-9]*$/ {print $4 " " $3 " KiB"}' /proc/partitions; fi
+echo 'Mounts of removable block devices:'
+if [ -r /proc/mounts ]; then grep -E '(^/dev/sd| /mnt/usb)' /proc/mounts || true; fi
+echo 'No mount or write actions were performed.'
