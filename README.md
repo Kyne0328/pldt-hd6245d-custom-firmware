@@ -9,6 +9,10 @@ The aim is to use as much of the device's existing hardware as possible: dual-ba
 > [!IMPORTANT]
 > **Developer preview — not ready to install.** The project now builds a native ARMv7 management daemon, an authenticated browser dashboard and a reproducible userspace overlay. However, it is **not** a complete router operating system, bootable kernel, or flashable image. No generated archive should be flashed to a device.
 
+### USB services and management interface (October 13, 2026)
+
+HGFW now contains an optional real USB-printer-class detector and bounded, operator-enabled raw TCP print bridge, plus authenticated read-only USB file browsing/downloads from manually mounted, kernel-confirmed USB partitions. The dashboard labels use the original FiberHome ASP menu terminology, with unnecessary engineering notes removed. No printer daemon, file-sharing daemon or hardware configuration is started automatically; physical hardware tests are pending. See [USB storage and printer integration](docs/USB_STORAGE_PRINTER.md).
+
 ### Offline full-firmware engineering checkpoint (October 12, 2026)
 
 The project now includes a **read-only RP2613/RP2725 boot-file inspector**, reproducible private ARMv7 `newc` initramfs builder, native-Linux UBIFS symlink/mode recovery for both stock root and application volumes, separate private stock-plus-HGFW rootfs and application staging, deterministic private TAR packers, and a fail-closed boot-readiness assessment. All three component archives have locally verified manifests and hashes; the Go/Python checks, ARM QEMU and existing authenticated administration tests pass. See [RP2613 boot-chain engineering and installation blockers](docs/RP2613_BOOT_CHAIN.md).

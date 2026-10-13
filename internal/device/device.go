@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/printing"
 )
 
 type Status struct {
@@ -22,6 +24,7 @@ type Status struct {
 	LoadOne        float64             `json:"loadOne"`
 	Interfaces     []Interface         `json:"interfaces"`
 	Disks          []Disk              `json:"disks"`
+	Printers       []printing.Printer  `json:"printers"`
 	Network        NetworkInspection   `json:"network"`
 	Platform       PlatformInspection  `json:"platform"`
 	LANPorts       []LANPort           `json:"lanPorts"`
@@ -140,7 +143,7 @@ func ValidateUSBPartition(device string) error {
 	return fmt.Errorf("%s is not a confirmed USB partition", device)
 }
 func Snapshot() Status {
-	s := Status{Model: fileText("/proc/device-tree/model"), Kernel: fileText("/proc/sys/kernel/osrelease"), Interfaces: []Interface{}, Disks: USBDisks("/sys/class/block", "/proc/mounts")}
+	s := Status{Model: fileText("/proc/device-tree/model"), Kernel: fileText("/proc/sys/kernel/osrelease"), Interfaces: []Interface{}, Disks: USBDisks("/sys/class/block", "/proc/mounts"), Printers: printing.List("/sys/class/usb", "/dev")}
 	if s.Model == "" {
 		s.Model = "Unknown Linux device"
 	}

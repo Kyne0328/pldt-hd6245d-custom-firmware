@@ -18,7 +18,7 @@ func TestStockMenuMappedIntoIndependentConsole(t *testing.T) {
 			t.Fatalf("missing console section %q", id)
 		}
 	}
-	labels := []string{"Wi-Fi clients list", "Read-only driver probe", "wirelessClientFacts", "Kernel CONFIG_TUN", "WireGuard feasibility", "VPN pass-through (GRE)", "IPsec pass-through", "WireGuard VPN", "OpenVPN", "Dynamic DNS", "Firmware update", "Port forwarding", "Parental controls", "VoIP status", "Optical status", "DHCP client list"}
+	labels := []string{"Wireless Client List", "Read-only driver probe", "wirelessClientFacts", "Kernel CONFIG_TUN", "WireGuard feasibility", "VPN pass-through (GRE)", "IPsec pass-through", "WireGuard VPN", "OpenVPN", "Dynamic DNS", "Firmware update", "Port forwarding", "Parental controls", "VoIP status", "Optical Power", "DHCP Client List"}
 	for _, label := range labels {
 		if !bytes.Contains(appJS, []byte(label)) {
 			t.Fatalf("missing feature %q", label)
@@ -33,9 +33,12 @@ func TestStockMenuMappedIntoIndependentConsole(t *testing.T) {
 	if !bytes.Contains(appJS, []byte("Not enabled")) || !bytes.Contains(appJS, []byte("Not configured or established by HGFW")) {
 		t.Fatal("feature capability states must be explicit")
 	}
-	for _, label := range []string{"serviceSources", "dnsUDP53Observed", "dhcpUDP67Observed", "HGFW read-only kernel/file/source checks"} {
+	for _, label := range []string{"serviceSources", "dnsUDP53Observed", "dhcpUDP67Observed", "printer-devices", "usb-files"} {
 		if !bytes.Contains(appJS, []byte(label)) {
 			t.Fatalf("missing evidence-driven source status: %s", label)
 		}
+	}
+	if bytes.Contains(appJS, []byte("Information source:")) || bytes.Contains(indexHTML, []byte("STAGE 02")) || bytes.Contains(indexHTML, []byte("STOCK MENU REFERENCE")) {
+		t.Fatal("engineering metadata must not appear in the user interface")
 	}
 }

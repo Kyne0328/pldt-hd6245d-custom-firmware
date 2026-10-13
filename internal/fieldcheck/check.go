@@ -40,6 +40,7 @@ type Inventory struct {
 	StationsWithRX              int      `json:"stationsWithRX"`
 	StationsWithTX              int      `json:"stationsWithTX"`
 	USBBlockDevices             int      `json:"usbBlockDevices"`
+	USBPrinters                 int      `json:"usbPrinters"`
 }
 type Result struct {
 	Success                       bool      `json:"success"`
@@ -57,7 +58,7 @@ func Summarize(s device.Status) Inventory {
 	v := Inventory{Interfaces: len(s.Interfaces), Routes: len(s.Network.IPv4Routes),
 		HasDefaultRoute: s.Network.DefaultInterface != "", ResolverFileReadable: s.Resolvers.Available,
 		ResolverCount: len(s.Resolvers.Nameservers), ARPNeighbors: len(s.ARPNeighbors),
-		USBBlockDevices: len(s.Disks), WirelessRadios: len(s.Wireless.Radios),
+		USBBlockDevices: len(s.Disks), USBPrinters:len(s.Printers), WirelessRadios: len(s.Wireless.Radios),
 		LeaseFileObserved: s.DHCPLeases.Available, LeaseRows: s.DHCPLeases.ValidRows,
 		WirelessLeaseNameMatches: s.DHCPLeases.MatchedWirelessNames,
 		KnownServiceProcessNames: s.ServiceSources.KnownProcessNames,

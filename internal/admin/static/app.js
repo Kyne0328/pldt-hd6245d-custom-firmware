@@ -2,7 +2,7 @@
 
 // HGFW Stage 2 console: observation only. Never interpolate API values into HTML.
 const $ = (id) => document.getElementById(id);
-const navNames = {overview: "Overview", status: "Status", network: "Network", security: "Security", applications: "Applications", management: "Management", storage: "USB storage", services: "Services"};
+const navNames = {overview: "Home", status: "Status", network: "Network", security: "Security", applications: "Applications", management: "Management", storage: "USB", services: "Services"};
 let latest = null;
 let networkFilter = "all";
 let inFlight = false;
@@ -49,7 +49,7 @@ function setPage() {
     else link.removeAttribute("aria-current");
   });
   valueText("crumb-current", navNames[chosen]);
-  document.title = "HGFW Console · " + navNames[chosen];
+  document.title = navNames[chosen] + " - HG6245D";
   if (latest && chosen === "network") renderInterfaceTable(latest.device.interfaces);
   routeCatalog();
   window.scrollTo({top:0,behavior:"instant"});
@@ -167,7 +167,7 @@ function renderInterfaceTable(interfaces) {
   if (!rows.length) {const row=el("tr");const cell=el("td","table-empty",query || networkFilter!=="all"?"No matching interfaces. Try another search or filter.":"No interfaces reported.");cell.colSpan=6;row.append(cell);rows.push(row);}
   $("interface-rows").replaceChildren(...rows);
 }
-function renderStorage(disks) {
+function renderStorage(disks, printers) {
   const list = hasArray(disks), drives = list.filter(d=>!d.partition), parts=list.filter(d=>d.partition);
   valueText("store-disks",drives.length);
   valueText("store-partitions",parts.length);
@@ -183,10 +183,52 @@ function renderStorage(disks) {
     left.append(icon,info);
     const side=el("div","storage-meta");
     side.append(el("strong","",formatBytes(d.bytes)),badge(d.mountpoint?"Mounted":"Detected",d.mountpoint?"up":""));
+    if(d.partition && d.mountpoint){
+      const button=el("button","filter","Browse");button.type="button";
+      button.addEventListener("click",()=>browseUSB(d.name,""));
+      side.append(button);
+    }
     row.append(left,side);return row;
   });
   if(!rows.length)rows.push(emptyState("Nothing plugged in yet","Connect a USB storage device to display disks and partitions.","▣"));
   $("storage-devices").replaceChildren(...rows);
+  const printerRows=hasArray(printers).map(p=>{
+    const row=el("div","storage-entry");
+    const left=el("div","storage-left");
+    left.append(el("span","drive-icon","▤"),el("div","",p.device));
+    row.append(left,badge("Connected","up"));
+    return row;
+  });
+  if(!printerRows.length)printerRows.push(emptyState("No USB printer","Connect a compatible USB printer to use the print server.","▤"));
+  const printerHost=$("printer-devices");
+  if(printerHost)printerHost.replaceChildren(...printerRows);
+}
+async function browseUSB(partition,relative){
+  const target=$("usb-files");
+  if(!target)return;
+  target.replaceChildren(el("p","muted","Loading files…"));
+  try {
+    const q=new URLSearchParams({partition,path:relative});
+    const response=await fetch("/api/storage/list?"+q,{credentials:"same-origin",cache:"no-store"});
+    if(!response.ok)throw Error("USB folder is not available");
+    const data=await response.json();
+    const nodes=[];
+    const heading=el("h3","",partition+(relative?" / "+relative:""));
+    nodes.push(heading);
+    if(relative){const up=el("button","filter","← Back");up.type="button";
+      up.addEventListener("click",()=>browseUSB(partition,relative.split("/").slice(0,-1).join("/")));
+      nodes.push(up);}
+    for(const entry of hasArray(data.entries)){
+      const full=[relative,entry.name].filter(Boolean).join("/");
+      if(entry.directory){const open=el("button","filter","▸ "+entry.name);open.type="button";
+        open.addEventListener("click",()=>browseUSB(partition,full));nodes.push(open);}
+      else {const link=el("a","text-link",entry.name+" ("+formatBytes(entry.bytes)+")");
+        link.href="/api/storage/file?"+new URLSearchParams({partition,path:full});
+        nodes.push(link);}
+    }
+    if(nodes.length===1)nodes.push(el("p","muted","Folder is empty."));
+    target.replaceChildren(...nodes);
+  }catch(e){target.replaceChildren(el("p","muted",e.message));}
 }
 function renderServices(services) {
   const list=hasArray(services);
@@ -211,15 +253,15 @@ function renderServices(services) {
 // independent HGFW UI code; no vendor ASP/CGI endpoints are invoked.
 const featureCatalog = {
  status:[
-  ["device","Device information","Live observation","Kernel, model, uptime and memory",d=>[["Model",d.model],["Kernel",d.kernel],["Uptime",readableUptime(d.uptimeSeconds)],["Available memory",formatBytes((d.memAvailableKB||0)*1024)]]],
-  ["wifi24","2.4 GHz wireless status","Read-only driver probe","Radio link and association data from the driver only if a supported read-only helper is available",d=>wirelessEvidence(d,"wl0")],
-  ["wifi5","5 GHz wireless status","Read-only driver probe","Radio link and association data from the driver only if a supported read-only helper is available",d=>wirelessEvidence(d,"wl1")],
-  ["wifi-clients","Wi-Fi clients list","Read-only driver probe","Connected clients are listed ONLY when a supported native Broadcom wl or nl80211 iw association query succeeds. ARP neighbors are not Wi-Fi clients.",d=>wirelessClientFacts(d)],
-  ["lan-ports","LAN port status","Live observation","LAN 1–4 carrier and bridge observations with operator-provided mapping",d=>[["Port map",hasArray(d.lanPorts).length+" currently matched"],["Bridge",bridgeText(d)]]],
-  ["dhcp-clients","DHCP client list","Backend pending","Lease records are not independently verified. Wi-Fi MACs may be correlated to kernel ARP observations, but these are NOT DHCP leases",d=>[["Standard dnsmasq lease file",d.dhcpLeases?.available?"Present (only validated entries considered)":"Unavailable; stock DHCP source unverified"],["Wireless lease host labels",d.dhcpLeases?.matchedWirelessNames||0],["Observed ARP entries",hasArray(d.arpNeighbors).length+" kernel neighbors"],["Wi-Fi/ARP links",hasArray(d.wireless?.radios).reduce((n,r)=>n+hasArray(r.stations).filter(s=>Boolean(s.neighborIPv4)).length,0)+" matched by MAC; not leases"],["Other standard lease-path candidates",hasArray(d.serviceSources?.leaseCandidates).filter(p=>p.present).map(p=>p.label+" ("+p.kind+")").join(", ")||"None among fixed candidates"],["Observed DHCP UDP/67 socket",d.serviceSources?.dhcpUDP67Observed?"Port present (owner unknown)":"Not observed"],["Known service process names",hasArray(d.serviceSources?.knownProcessNames).join(", ")||"None from allowlist"],["Vendor DHCP configuration path metadata",hasArray(d.serviceSources?.vendorDHCPConfigCandidates).filter(p=>p.present).map(p=>p.label+" ("+p.kind+")").join(", ")||"Not observed"]]],
+  ["device","Device Information","Live observation","Kernel, model, uptime and memory",d=>[["Model",d.model],["Kernel",d.kernel],["Uptime",readableUptime(d.uptimeSeconds)],["Available memory",formatBytes((d.memAvailableKB||0)*1024)]]],
+  ["wifi24","2.4 GHz Wireless State","Read-only driver probe","Radio link and association data from the driver only if a supported read-only helper is available",d=>wirelessEvidence(d,"wl0")],
+  ["wifi5","5 GHz Wireless State","Read-only driver probe","Radio link and association data from the driver only if a supported read-only helper is available",d=>wirelessEvidence(d,"wl1")],
+  ["wifi-clients","Wireless Client List","Read-only driver probe","Connected clients are listed ONLY when a supported native Broadcom wl or nl80211 iw association query succeeds. ARP neighbors are not Wi-Fi clients.",d=>wirelessClientFacts(d)],
+  ["lan-ports","LAN State","Live observation","LAN 1–4 carrier and bridge observations with operator-provided mapping",d=>[["Port map",hasArray(d.lanPorts).length+" currently matched"],["Bridge",bridgeText(d)]]],
+  ["dhcp-clients","DHCP Client List","Backend pending","Lease records are not independently verified. Wi-Fi MACs may be correlated to kernel ARP observations, but these are NOT DHCP leases",d=>[["Standard dnsmasq lease file",d.dhcpLeases?.available?"Present (only validated entries considered)":"Unavailable; stock DHCP source unverified"],["Wireless lease host labels",d.dhcpLeases?.matchedWirelessNames||0],["Observed ARP entries",hasArray(d.arpNeighbors).length+" kernel neighbors"],["Wi-Fi/ARP links",hasArray(d.wireless?.radios).reduce((n,r)=>n+hasArray(r.stations).filter(s=>Boolean(s.neighborIPv4)).length,0)+" matched by MAC; not leases"],["Other standard lease-path candidates",hasArray(d.serviceSources?.leaseCandidates).filter(p=>p.present).map(p=>p.label+" ("+p.kind+")").join(", ")||"None among fixed candidates"],["Observed DHCP UDP/67 socket",d.serviceSources?.dhcpUDP67Observed?"Port present (owner unknown)":"Not observed"],["Known service process names",hasArray(d.serviceSources?.knownProcessNames).join(", ")||"None from allowlist"],["Vendor DHCP configuration path metadata",hasArray(d.serviceSources?.vendorDHCPConfigCandidates).filter(p=>p.present).map(p=>p.label+" ("+p.kind+")").join(", ")||"Not observed"]]],
   ["neighbors","LAN neighbor table","Live observation","Completed IPv4 ARP entries; not a DHCP lease or Wi-Fi association list",d=>[["IPv4 ARP entries",hasArray(d.arpNeighbors).length],...hasArray(d.arpNeighbors).slice(0,16).map(n=>[n.address,n.mac+" · "+n.interface])]],
-  ["wan-status","WAN status","Kernel routes only","Default route observation is not proof of an upstream connection",d=>[["Default route",d.network?.defaultInterface||"None reported"],["Gateway",d.network?.defaultGateway||"None reported"]]],
-  ["optical","Optical status","Interface detected only","GPON/OMCI interface metadata; optical RX/TX power not exposed by this backend",d=>[["Optical interface",hasArray(d.interfaces).filter(i=>/^(sfu|gpon|veip)/.test(i.name)).map(i=>i.name).join(", ")||"Not found"],["Optical power","Not measured"]]],
+  ["wan-status","WAN State","Kernel routes only","Default route observation is not proof of an upstream connection",d=>[["Default route",d.network?.defaultInterface||"None reported"],["Gateway",d.network?.defaultGateway||"None reported"]]],
+  ["optical","Optical Power","Interface detected only","GPON/OMCI interface metadata; optical RX/TX power not exposed by this backend",d=>[["Optical interface",hasArray(d.interfaces).filter(i=>/^(sfu|gpon|veip)/.test(i.name)).map(i=>i.name).join(", ")||"Not found"],["Optical power","Not measured"]]],
   ["voip","VoIP status","Interface detected only","VoIP interface presence is not voice registration or call capability",d=>[["VoIP-related interfaces",hasArray(d.interfaces).filter(i=>/^(voip|tel[0-9])/.test(i.name)).map(i=>i.name).join(", ")||"Not found"],["SIP registration","Not inspected"]]],
  ],
  network:[
@@ -229,8 +271,8 @@ const featureCatalog = {
   ["wifi-power-24","2.4 GHz transmit power","Not enabled","Radio transmit power controls need verified Broadcom driver support",()=>[]],
   ["wifi-power-5","5 GHz transmit power","Not enabled","5 GHz radio power control remains unsupported by HGFW",()=>[]],
   ["wps","Wi-Fi Protected Setup","Not enabled","WPS status and configuration cannot be verified and are not exposed for activation",()=>[]],
-  ["lan-config","LAN & DHCP","Not enabled","The independent network-plan validator works offline; DHCP configuration is not applied",d=>[["Bridge",bridgeText(d)],["IPv4 forwarding",triState(d.platform?.ipv4Forwarding)]]],
-  ["wan-config","Broadband / WAN","Not enabled","WAN interface binding and connectivity must be tested with verified recovery",d=>[["Kernel default route",d.network?.defaultInterface||"None reported"]]],
+  ["lan-config","LAN Settings","Not enabled","The independent network-plan validator works offline; DHCP configuration is not applied",d=>[["Bridge",bridgeText(d)],["IPv4 forwarding",triState(d.platform?.ipv4Forwarding)]]],
+  ["wan-config","WAN Settings","Not enabled","WAN interface binding and connectivity must be tested with verified recovery",d=>[["Kernel default route",d.network?.defaultInterface||"None reported"]]],
   ["dns-resolvers","Linux DNS resolvers","Read-only observation","Observed Linux resolver file, not a validated upstream, DHCP DNS option or an active HGFW DNS daemon",d=>[["Resolver file",d.resolvers?.available?"Readable":"Unavailable"],["Name servers",hasArray(d.resolvers?.nameservers).join(", ")||"None exposed"],["Independent DNS engine","Static loopback responder implemented; LAN DNS not enabled"],["Other resolver path candidates",hasArray(d.serviceSources?.resolverCandidates).filter(p=>p.present).map(p=>p.label+" ("+p.kind+")").join(", ")||"No fixed candidates observed"],["UDP DNS port 53",d.serviceSources?.dnsUDP53Observed?"Socket present (owner unknown)":"Not observed"],["TCP DNS port 53",d.serviceSources?.dnsTCP53Listening?"Listener present (owner unknown)":"Not observed"]]],
   ["iptv","IPTV & VLANs","Not enabled","Physical switch VLAN assignment is unverified on this hardware variant",()=>[]],
   ["ipv6","IPv6","Kernel flag only","IPv6 routing and firewall configuration is not enabled",d=>[["IPv6 forwarding",triState(d.platform?.ipv6Forwarding)]]],
@@ -264,8 +306,8 @@ const featureCatalog = {
   ["nat","NAT","Kernel metadata only","Forwarding flags are observable, but active NAT rule correctness is not established",d=>[["IPv4 forwarding",triState(d.platform?.ipv4Forwarding)],["NAT table",hasArray(d.platform?.ipv4FirewallTables).includes("nat")?"Table name exposed":"Not exposed"]]],
   ["upnp","UPnP","Not enabled","No UPnP Internet Gateway Device service is running under HGFW",()=>[]],
   ["dmz","DMZ","Not enabled","No exposed-host forwarding controls are available",()=>[]],
-  ["samba","Samba file sharing","Storage observation only","USB disks can be enumerated; HGFW has not deployed an SMB server",d=>[["USB disks",hasArray(d.disks).filter(d=>!d.partition).length],["SMB server","Not deployed"]]],
-  ["usb-printer","USB print server","Not enabled","USB printer identification and a print spooler are not implemented",()=>[]],
+  ["samba","Samba","Storage observation only","USB disks can be enumerated; HGFW has not deployed an SMB server",d=>[["USB disks",hasArray(d.disks).filter(d=>!d.partition).length],["SMB server","Not deployed"]]],
+  ["usb-printer","USB Printer","View only","Connected USB printers are shown below. Printing can be started from the local shell when a printer is connected.",d=>[["USB printers",hasArray(d.printers).length],["Print service","Manual start required"]]],
   ["diagnostics","Network diagnostics","Read-only observation","Interface counters, routes and the supervised loopback health test are available; no active WAN probing is performed",d=>[["Kernel routes",hasArray(d.network?.ipv4Routes).length],["Loopback service test","hgfw network-selftest (CLI)"]]],
  ],
  management:[
@@ -310,7 +352,7 @@ function wirelessClientFacts(d){
    }
   }
  }
- result.push(["Station address privacy","MAC addresses are displayed only in this authenticated device dashboard; do not publish screenshots with addresses."]);
+ // MAC addresses appear only on this authenticated page.
  return result;
 }
 function vpnFacts(d) {
@@ -355,9 +397,12 @@ function renderCatalog(group,requested){
  const detail=el("article","catalog-detail");
  const heading=el("div","catalog-head");
  const title=el("h2","",selected[1]);
- const status=badge(selected[2],selected[2].startsWith("Live")?"up":"");
+ const observed=/^(Live|Read-only|Kernel|Interface detected|Storage observation|Active HGFW)/.test(selected[2]);
+ const displayState=observed?"View only":"Unavailable";
+ const status=badge(displayState,observed?"up":"");
  heading.append(title,status);
- detail.append(heading,el("p","catalog-lede",selected[3]));
+ detail.append(heading);
+ if(!observed)detail.append(el("p","catalog-lede","This option is not available."));
  const facts=latest?selected[4](latest.device):[];
  if(facts.length) {
   const dl=el("dl","fact-grid");
@@ -368,9 +413,8 @@ function renderCatalog(group,requested){
   }
   detail.append(dl);
  }else if(!latest)detail.append(el("p","catalog-help","Waiting for authenticated device status…"));
- else detail.append(el("div","unavailable-feature","This setting is not connected to an independent HGFW implementation. No apply, save or stock-firmware write operation is available."));
- const evidenceSource=(selected[0]==="dhcp-clients"||selected[0]==="dns-resolvers")?"HGFW read-only kernel/file/source checks. Observed metadata is not an active DHCP or DNS service.":(selected[2].startsWith("Live")||selected[2].startsWith("Read-only")||selected[2].includes("Kernel")||selected[2].includes("Prerequisite")||selected[2].includes("driver probe")?"Linux kernel / HGFW diagnostics; optional native read-only helper.":"PLDT menu capability reference only.");
- detail.append(el("p","catalog-footnote","Information source: "+evidenceSource+" The dashboard does not invoke proprietary /goform settings."));
+ else detail.append(el("div","unavailable-feature","This setting is not available yet."));
+ // Present only device settings and their actual state; technical evidence stays in diagnostics.
  host.replaceChildren(index,detail);
 }
 function renderAllCatalogs(){
@@ -393,7 +437,7 @@ async function refresh() {
     renderOverview(data.device,services);
     renderNetwork(data.device);
     renderPorts(data.device);
-    renderStorage(data.device.disks);
+    renderStorage(data.device.disks,data.device.printers);
     renderServices(services);
     renderAllCatalogs();
     lastUpdate=new Date();

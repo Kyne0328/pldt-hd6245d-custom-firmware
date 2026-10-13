@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"mime"
 	"net"
 	"net/http"
 	"os"
@@ -19,6 +21,7 @@ import (
 
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/device"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/services"
+	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/storage"
 )
 
 const rounds = 300000
@@ -241,6 +244,49 @@ func (client *Backend) Handler() http.Handler {
 			Services []services.State `json:"services"`
 			Mode     string           `json:"mode"`
 		}{client.Snapshot(), client.Supervisor.Snapshot(), "observation-only"})
+	})
+	// USB file browsing is authenticated and read-only. Files must be on a
+	// kernel-confirmed USB partition mounted under /mnt/hgfw. No public file server.
+	mux.HandleFunc("GET /api/storage/list", func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := client.authenticated(r); !ok {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if len(r.URL.RawQuery) > 2048 {
+			http.Error(w, "Invalid path", 400)
+			return
+		}
+		data, e := storage.Browse("/mnt/hgfw", r.URL.Query().Get("partition"), r.URL.Query().Get("path"), device.USBDisks("/sys/class/block", "/proc/mounts"))
+		if e != nil {
+			http.Error(w, "USB folder unavailable", 404)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(data)
+	})
+	mux.HandleFunc("GET /api/storage/file", func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := client.authenticated(r); !ok {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if len(r.URL.RawQuery) > 2048 {
+			http.Error(w, "Invalid path", 400)
+			return
+		}
+		name := r.URL.Query().Get("path")
+		f, n, e := storage.OpenFile("/mnt/hgfw", r.URL.Query().Get("partition"), name, device.USBDisks("/sys/class/block", "/proc/mounts"))
+		if e != nil {
+			http.Error(w, "USB file unavailable", 404)
+			return
+		}
+		defer f.Close()
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filepath.Base(name)}))
+		w.Header().Set("Content-Length", strconv.FormatInt(n, 10))
+		_, _ = io.CopyN(w, f, n)
 	})
 	mux.HandleFunc("GET /api/csrf", func(w http.ResponseWriter, r *http.Request) {
 		s, ok := client.authenticated(r)

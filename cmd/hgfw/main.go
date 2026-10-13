@@ -20,6 +20,7 @@ import (
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/fieldcheck"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/netprobe"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/preview"
+	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/printing"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/services"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/smoke"
 	"github.com/Kyne0328/pldt-hd6245d-custom-firmware/internal/storage"
@@ -29,7 +30,7 @@ const defaultServices = "config/services.json"
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "HGFW — independent router userspace (engineering build)")
-	fmt.Fprintln(os.Stderr, "Commands: init, serve, preview, smoke, status, field-check, dns-selftest, dhcp-selftest, network-inspect, network-plan, network-selftest, wireless-inspect, vpn-inspect, usb, usb-mount, usb-unmount, version")
+	fmt.Fprintln(os.Stderr, "Commands: init, serve, preview, smoke, status, field-check, dns-selftest, dhcp-selftest, network-inspect, network-plan, network-selftest, wireless-inspect, vpn-inspect, usb, usb-mount, usb-unmount, printer-list, printer-serve, version")
 	fmt.Fprintln(os.Stderr, "No command changes NAND, NVRAM, bridge, Wi-Fi, or firewall.")
 }
 func run(args []string) error {
@@ -233,6 +234,32 @@ func run(args []string) error {
 			defer cancel()
 			return srv.Shutdown(shutdown)
 		}
+	case "printer-list":
+		if len(args) != 1 {
+			return errors.New("printer-list takes no arguments")
+		}
+		return json.NewEncoder(os.Stdout).Encode(printing.List("/sys/class/usb", "/dev"))
+	case "printer-serve":
+		f := flag.NewFlagSet("printer-serve", flag.ContinueOnError)
+		listen := f.String("listen", "127.0.0.1:9100", "specific IPv4 address and TCP port")
+		subnet := f.String("allow-subnet", "127.0.0.0/8", "private IPv4 subnet permitted to submit jobs")
+		dev := f.String("device", "/dev/usb/lp0", "verified kernel USB printer node")
+		limit := f.Int("max-kib", 512, "maximum job size in KiB (1..4096)")
+		jobs := f.Int("jobs", 1, "print jobs before automatic shutdown (1..20)")
+		seconds := f.Int("seconds", 300, "maximum printer session seconds (1..1800)")
+		confirm := f.Bool("confirm", false, "explicitly authorize temporary printer data submission")
+		if err := f.Parse(args[1:]); err != nil {
+			return err
+		}
+		if f.NArg() != 0 {
+			return errors.New("unexpected printer-serve arguments")
+		}
+		if !*confirm {
+			return errors.New("no print service started; --confirm required")
+		}
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return printing.Serve(ctx, printing.Options{Listen: *listen, AllowedCIDR: *subnet, Device: *dev, MaxBytes: int64(*limit) * 1024, MaxJobs: *jobs, Duration: time.Duration(*seconds) * time.Second})
 	case "usb-mount":
 		f := flag.NewFlagSet("usb-mount", flag.ContinueOnError)
 		dev := f.String("partition", "", "USB block partition e.g. /dev/sda1")
