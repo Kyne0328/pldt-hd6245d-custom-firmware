@@ -9,6 +9,10 @@ The aim is to use as much of the device's existing hardware as possible: dual-ba
 > [!IMPORTANT]
 > **Developer preview — not ready to install.** The project now builds a native ARMv7 management daemon, an authenticated browser dashboard and a reproducible userspace overlay. However, it is **not** a complete router operating system, bootable kernel, or flashable image. No generated archive should be flashed to a device.
 
+### Experimental RP2613 UBI firmware slot (October 13, 2026)
+
+An offline UBI image now preserves the original RP2613 rootfs, metadata and CFE/kernel file record while adding HGFW to an independently rebuilt `app_ubifs` volume. Its five volume IDs and reserved capacities match the original NAND layout, and all five volume payloads were verified byte-for-byte after extraction. See [Experimental RP2613 UBI slot](docs/RP2613_OFFLINE_UBI_SLOT.md). **This is a private offline research image only. It is not a firmware-updater file and must not be flashed: automatic HGFW startup, GPON/Wi-Fi/LAN operation, vendor acceptance and recovery remain unverified.**
+
 ### USB services and management interface (October 13, 2026)
 
 HGFW now contains an optional real USB-printer-class detector and bounded, operator-enabled raw TCP print bridge, plus authenticated read-only USB file browsing/downloads from manually mounted, kernel-confirmed USB partitions. The dashboard labels use the original FiberHome ASP menu terminology, with unnecessary engineering notes removed. No printer daemon, file-sharing daemon or hardware configuration is started automatically; physical hardware tests are pending. See [USB storage and printer integration](docs/USB_STORAGE_PRINTER.md).

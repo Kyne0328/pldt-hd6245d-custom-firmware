@@ -27,6 +27,22 @@ class GateTests(unittest.TestCase):
             self.assertFalse(report["flashable"])
             self.assertFalse(report["installationPermitted"])
             self.assertEqual(len(report["hardBlockers"]),6)
+            slot=base/"ubi-slot";slot.mkdir()
+            payload=b"UBI#"+b"\0"*(131072*3-4)
+            (slot/"hgfw-rp2613-experimental-slot.ubi").write_bytes(payload)
+            table=[(0,"rootfs_ubifs",160),(1,"METADATA",1),(2,"METADATACOPY",1),(3,"app_ubifs",240),(10,"filestruct_full.bin",31)]
+            (slot/"slot-manifest.json").write_text(json.dumps({
+                "flashable":False,"installationApproved":False,"boardBootVerified":False,
+                "recoveryVerified":False,"hgfwAutostartConfigured":False,
+                "image":{"bytes":len(payload),"sha256":hashlib.sha256(payload).hexdigest()},
+                "volumes":[{"id":vid,"name":name,"reservedLEBs":reserved} for vid,name,reserved in table],
+            }))
+            bundled=gate.assess(init,root,app,slot)
+            self.assertTrue(bundled["passedLocalArtifactIntegrity"])
+            self.assertEqual(len(bundled["artifactIntegrity"]),4)
+            self.assertFalse(bundled["installationPermitted"])
+            (slot/"hgfw-rp2613-experimental-slot.ubi").write_bytes(payload+b"tampered")
+            with self.assertRaises(ValueError):gate.assess(init,root,app,slot)
             (app/"hgfw-rp2613-app-compat-private.tar.gz").write_bytes(b"tampered")
             with self.assertRaises(ValueError):
                 gate.assess(init,root,app)
